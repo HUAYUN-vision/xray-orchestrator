@@ -84,6 +84,18 @@ describe('XrayService against xray-server-instance (node)', () => {
     await expect(xray.removeClient(node, id)).resolves.toBeUndefined();
   });
 
+  it('adds, lists and removes clients in batches', async () => {
+    const ids: string[] = [randomUUID(), randomUUID(), randomUUID()];
+    await xray.addClients(node, ids);
+    for (const id of ids) expect(await hasClient(id)).toBe(true);
+    expect(await xray.listClients(node)).toEqual(expect.arrayContaining(ids));
+
+    await xray.removeClients(node, ids);
+    for (const id of ids) expect(await hasClient(id)).toBe(false);
+    const left = await xray.listClients(node);
+    expect(left.filter((id) => ids.includes(id))).toEqual([]);
+  });
+
   it('rejects a wrong API key', async () => {
     await expect(client.run({ ...node, apiKey: 'b'.repeat(64) }, ['true'])).rejects.toMatchObject({
       reason: 'unauthorized',

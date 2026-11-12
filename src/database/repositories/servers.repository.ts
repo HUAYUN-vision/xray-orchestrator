@@ -29,6 +29,11 @@ export class ServersRepository {
     });
   }
 
+  /** All servers, including disabled ones (they may still hold old clients). */
+  findAll(): Promise<ServerWithKey[]> {
+    return this.repo.find({ select: ALL_COLUMNS, order: { code: 'ASC' } });
+  }
+
   findById(id: string): Promise<ServerWithKey | null> {
     return this.repo.findOne({
       where: { id },

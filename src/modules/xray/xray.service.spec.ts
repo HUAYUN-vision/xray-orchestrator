@@ -51,6 +51,30 @@ describe('XrayService', () => {
     expect(cmds[1]).toBe(`rm -f /xray/data/users/${id}.json`);
   });
 
+  it('adds and removes several clients in one request', async () => {
+    const ids = [randomUUID(), randomUUID()];
+    await service.addClients(node, ids);
+    const add = run.mock.calls[1][1];
+    expect(add).toHaveLength(1 + 3 * ids.length);
+    expect(add.filter((c) => c.startsWith('xray api adu'))).toHaveLength(2);
+
+    await service.removeClients(node, ids);
+    expect(run.mock.calls[2][1]).toHaveLength(2 * ids.length);
+  });
+
+  it('does not call the node for an empty batch', async () => {
+    await service.addClients(node, []);
+    await service.removeClients(node, []);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('lists client ids from user files, ignoring anything else', async () => {
+    const id = randomUUID();
+    run.mockResolvedValueOnce([`${id}.json\nREADME\nnot-a-uuid.json\n`]);
+    await expect(service.listClients(node)).resolves.toEqual([id]);
+    expect(run.mock.calls[0][1][0]).toMatch(/^ls -1 \/xray\/data\/users .*\|\| true$/);
+  });
+
   it.each(['not-a-uuid', "x'; rm -rf / #", ''])('refuses unsafe client id %p', async (id) => {
     await expect(service.addClient(node, id)).rejects.toThrow(/Invalid xray client id/);
     await expect(service.removeClient(node, id)).rejects.toThrow(/Invalid xray client id/);

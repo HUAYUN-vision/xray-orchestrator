@@ -5,9 +5,19 @@ import { AppConfigService } from '../config/app-config.service';
 import { buildDataSourceOptions } from './database.config';
 import { DatabaseHealthIndicator } from './database.health';
 import { ENTITIES } from './entities';
+import { BalanceRepository } from './repositories/balance.repository';
 import { ServersRepository } from './repositories/servers.repository';
+import { TariffsRepository } from './repositories/tariffs.repository';
 import { UserKeysRepository } from './repositories/user-keys.repository';
 import { UsersRepository } from './repositories/users.repository';
+
+const REPOSITORIES = [
+  UsersRepository,
+  BalanceRepository,
+  TariffsRepository,
+  ServersRepository,
+  UserKeysRepository,
+];
 
 /**
  * The only place that knows about TypeORM: connection, entities, migrations, repositories.
@@ -26,7 +36,7 @@ import { UsersRepository } from './repositories/users.repository';
     TypeOrmModule.forFeature(ENTITIES),
     TerminusModule,
   ],
-  providers: [UsersRepository, ServersRepository, UserKeysRepository, DatabaseHealthIndicator],
-  exports: [UsersRepository, ServersRepository, UserKeysRepository, DatabaseHealthIndicator],
+  providers: [...REPOSITORIES, DatabaseHealthIndicator],
+  exports: [...REPOSITORIES, DatabaseHealthIndicator],
 })
 export class DatabaseModule {}

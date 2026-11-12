@@ -27,41 +27,65 @@ export class XrayService {
    * Adds (or re-adds) a client. The user file survives container restarts:
    * xray-server-instance re-imports `/xray/data/users/*.json` on start.
    */
-  async addClient(node: XrayNode, clientId: string): Promise<void> {
-    assertUuid(clientId);
+  addClient(node: XrayNode, clientId: string): Promise<void> {
+    return this.addClients(node, [clientId]);
+  }
+
+  /** Adds several clients in one request to the node. */
+  async addClients(node: XrayNode, clientIds: string[]): Promise<void> {
+    clientIds.forEach(assertUuid);
+    if (clientIds.length === 0) return;
     const { port } = await this.getRealityParams(node);
-    const file = `${USERS_DIR}/${clientId}.json`;
-    const config = JSON.stringify({
-      inbounds: [
-        {
-          tag: INBOUND_TAG,
-          listen: '0.0.0.0',
-          port,
-          protocol: 'vless',
-          settings: {
-            clients: [{ id: clientId, email: clientId, flow: 'xtls-rprx-vision', level: 0 }],
-            decryption: 'none',
+    const commands = [`mkdir -p ${USERS_DIR}`];
+    for (const clientId of clientIds) {
+      const file = `${USERS_DIR}/${clientId}.json`;
+      const config = JSON.stringify({
+        inbounds: [
+          {
+            tag: INBOUND_TAG,
+            listen: '0.0.0.0',
+            port,
+            protocol: 'vless',
+            settings: {
+              clients: [{ id: clientId, email: clientId, flow: 'xtls-rprx-vision', level: 0 }],
+              decryption: 'none',
+            },
           },
-        },
-      ],
-    });
-    // clientId is a validated UUID and config has no single quotes, so the shell quoting is safe.
-    await this.client.run(node, [
-      `mkdir -p ${USERS_DIR}`,
-      `printf '%s' '${config}' > ${file}`,
-      // Remove first so adding an existing client does not fail.
-      `xray api rmu --server=${XRAY_API} --tag=${INBOUND_TAG} ${clientId} >/dev/null 2>&1 || true`,
-      `xray api adu --server=${XRAY_API} ${file}`,
-    ]);
+        ],
+      });
+      // clientId is a validated UUID and config has no single quotes, so the shell quoting is safe.
+      commands.push(
+        `printf '%s' '${config}' > ${file}`,
+        // Remove first so adding an existing client does not fail.
+        rmuCommand(clientId),
+        `xray api adu --server=${XRAY_API} ${file}`,
+      );
+    }
+    await this.client.run(node, commands);
   }
 
   /** Removes a client; succeeds if it is already gone. */
-  async removeClient(node: XrayNode, clientId: string): Promise<void> {
-    assertUuid(clientId);
-    await this.client.run(node, [
-      `xray api rmu --server=${XRAY_API} --tag=${INBOUND_TAG} ${clientId} >/dev/null 2>&1 || true`,
-      `rm -f ${USERS_DIR}/${clientId}.json`,
-    ]);
+  removeClient(node: XrayNode, clientId: string): Promise<void> {
+    return this.removeClients(node, [clientId]);
+  }
+
+  /** Removes several clients in one request; missing ones are ignored. */
+  async removeClients(node: XrayNode, clientIds: string[]): Promise<void> {
+    clientIds.forEach(assertUuid);
+    if (clientIds.length === 0) return;
+    await this.client.run(
+      node,
+      clientIds.flatMap((id) => [rmuCommand(id), `rm -f ${USERS_DIR}/${id}.json`]),
+    );
+  }
+
+  /** Client ids present on the node (by user files in `/xray/data/users`). */
+  async listClients(node: XrayNode): Promise<string[]> {
+    const [out] = await this.client.run(node, [`ls -1 ${USERS_DIR} 2>/dev/null || true`]);
+    return (out ?? '')
+      .split('\n')
+      .map((line) => line.trim().replace(/\.json$/, ''))
+      .filter((id) => UUID_RE.test(id));
   }
 
   /** Reality params of a node, cached for an hour. */
@@ -113,6 +137,10 @@ export class XrayService {
     });
     return `vless://${clientId}@${node.host}:${p.port}?${query.toString()}#${encodeURIComponent(label)}`;
   }
+}
+
+function rmuCommand(clientId: string): string {
+  return `xray api rmu --server=${XRAY_API} --tag=${INBOUND_TAG} ${clientId} >/dev/null 2>&1 || true`;
 }
 
 function assertUuid(id: string): void {

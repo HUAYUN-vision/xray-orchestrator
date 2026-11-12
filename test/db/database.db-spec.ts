@@ -16,6 +16,8 @@ import {
   TransactionType,
   UserKeyStatus,
 } from '../../src/database/enums';
+import { InsufficientFundsError, StaleBalanceError } from '../../src/database/balance-ops';
+import { BalanceRepository } from '../../src/database/repositories/balance.repository';
 import { UserKeysRepository } from '../../src/database/repositories/user-keys.repository';
 import { UsersRepository } from '../../src/database/repositories/users.repository';
 
@@ -99,7 +101,160 @@ describe('Database (db)', () => {
     });
   });
 
+  describe('BalanceRepository', () => {
+    let balance: BalanceRepository;
+    beforeEach(() => {
+      balance = new BalanceRepository(dataSource);
+    });
+
+    const deposit = (userId: number, amount: string, currency = Currency.RUB) =>
+      balance.credit({ userId, currency, amount, kind: TransactionKind.Deposit });
+    const pay = (userId: number, amount: string, expectedSeqno?: number) =>
+      balance.debit({
+        userId,
+        currency: Currency.RUB,
+        amount,
+        kind: TransactionKind.Payment,
+        expectedSeqno,
+      });
+
+    it('credits and debits exactly, writing the ledger; only debits bump seqno', async () => {
+      const user = await newUser();
+      await deposit(user.id, '100.1');
+      await deposit(user.id, '0.00000001');
+      expect(await balance.findByUserId(user.id)).toMatchObject({
+        rub: '100.10000001',
+        seqno: 1,
+      });
+
+      const tx = await pay(user.id, '100.10000001', 1);
+      expect(tx).toMatchObject({ type: TransactionType.Debit, amount: '100.10000001' });
+      expect(await balance.findByUserId(user.id)).toMatchObject({ rub: '0.00000000', seqno: 2 });
+      expect(await dataSource.getRepository(Transaction).count()).toBe(3);
+    });
+
+    it('refuses to overdraw and leaves no ledger entry', async () => {
+      const user = await newUser();
+      await deposit(user.id, '10');
+      await expect(pay(user.id, '10.00000001')).rejects.toThrow(InsufficientFundsError);
+      expect(await balance.findByUserId(user.id)).toMatchObject({ rub: '10.00000000', seqno: 1 });
+      expect(await dataSource.getRepository(Transaction).count()).toBe(1);
+    });
+
+    it('rejects a stale seqno (double tap pays once)', async () => {
+      const user = await newUser();
+      await deposit(user.id, '500');
+      const results = await Promise.allSettled([pay(user.id, '199', 1), pay(user.id, '199', 1)]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const failed = results.find((r) => r.status === 'rejected');
+      expect(failed?.reason).toBeInstanceOf(StaleBalanceError);
+      expect((await balance.findByUserId(user.id))?.rub).toBe('301.00000000');
+    });
+
+    it('serializes concurrent debits so the balance never goes negative', async () => {
+      const user = await newUser();
+      await deposit(user.id, '1000');
+      const results = await Promise.allSettled(
+        Array.from({ length: 15 }, () => pay(user.id, '100')),
+      );
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(10);
+      expect((await balance.findByUserId(user.id))?.rub).toBe('0.00000000');
+    });
+
+    it.each(['0', '-1', '1e3', '0.000000001', 'abc'])('rejects amount %p', async (amount) => {
+      const user = await newUser();
+      await expect(deposit(user.id, amount)).rejects.toThrow(RangeError);
+    });
+  });
+
   describe('UserKeysRepository', () => {
+    let keys: UserKeysRepository;
+    let tariffId: string;
+    let userId: number;
+    beforeEach(async () => {
+      keys = new UserKeysRepository(dataSource.getRepository(UserKey), dataSource);
+      userId = (await newUser()).id;
+      tariffId = (
+        await dataSource
+          .getRepository(Tariff)
+          .save({ durationDays: 30, price: '199', currency: Currency.RUB })
+      ).id;
+      await new BalanceRepository(dataSource).credit({
+        userId,
+        currency: Currency.RUB,
+        amount: '300',
+        kind: TransactionKind.Deposit,
+      });
+    });
+
+    const newKey = (expiresAt = new Date(Date.now() + 86_400_000)) => ({
+      id: randomUUID(),
+      userId,
+      tariffId,
+      expiresAt,
+      trafficLimit: null,
+    });
+    const rub = async () =>
+      (await dataSource.getRepository(BalanceAccount).findOneByOrFail({ userId })).rub;
+
+    it('createPaid charges and stores the key together', async () => {
+      const input = newKey();
+      const { key, payment } = await keys.createPaid(input, {
+        currency: Currency.RUB,
+        amount: '199',
+        expectedSeqno: 1,
+      });
+      expect(key.id).toBe(input.id);
+      expect(payment?.meta).toMatchObject({ tariffId, userKeyId: input.id });
+      expect(await rub()).toBe('101.00000000');
+    });
+
+    it('createPaid stores nothing when the payment fails', async () => {
+      const input = newKey();
+      await expect(
+        keys.createPaid(input, { currency: Currency.RUB, amount: '301' }),
+      ).rejects.toThrow(InsufficientFundsError);
+      expect(await dataSource.getRepository(UserKey).count({ withDeleted: true })).toBe(0);
+      expect(await rub()).toBe('300.00000000');
+    });
+
+    it('cancelPaid removes the key and refunds exactly once', async () => {
+      const input = newKey();
+      const { payment } = await keys.createPaid(input, { currency: Currency.RUB, amount: '199' });
+      const results = await Promise.all([
+        keys.cancelPaid(input.id, payment, 'creation_failed'),
+        keys.cancelPaid(input.id, payment, 'creation_failed'),
+      ]);
+      expect(results.sort()).toEqual([false, true]);
+      expect(await rub()).toBe('300.00000000');
+      expect(await keys.findActive(input.id)).toBeNull();
+      const refund = await dataSource
+        .getRepository(Transaction)
+        .findOneByOrFail({ kind: TransactionKind.Refund });
+      expect(refund.meta).toEqual({ transactionId: payment?.id, reason: 'creation_failed' });
+    });
+
+    it('expiry: findExpired → markExpired; live and dead ids for node sync', async () => {
+      const live = newKey();
+      const past = newKey(new Date(Date.now() - 1000));
+      const deleted = newKey();
+      for (const k of [live, past, deleted]) await keys.createPaid(k, null);
+      await dataSource.getRepository(UserKey).softDelete(deleted.id);
+
+      const expired = await keys.findExpired(new Date(), 10);
+      expect(expired.map((k) => k.id)).toEqual([past.id]);
+      expect(await keys.markExpired([past.id, live.id])).toEqual([past.id]);
+      expect(await keys.markExpired([past.id])).toEqual([]);
+      expect(await keys.findExpired(new Date(), 10)).toEqual([]);
+
+      expect(await keys.findLiveIds()).toEqual([live.id]);
+      const unknown = randomUUID();
+      const dead = await keys.findDeadIds([live.id, past.id, deleted.id, unknown]);
+      expect(dead.sort()).toEqual([past.id, deleted.id].sort());
+    });
+  });
+
+  describe('UserKeysRepository.findActive', () => {
     it('findActive returns only active, unexpired, not deleted keys', async () => {
       const user = await newUser();
       const tariff = await dataSource
@@ -122,7 +277,7 @@ describe('Database (db)', () => {
       ]);
       await repo.softDelete(deleted);
 
-      const keys = new UserKeysRepository(repo);
+      const keys = new UserKeysRepository(repo, dataSource);
       expect((await keys.findActive(active))?.id).toBe(active);
       for (const id of [expired, past, deleted, randomUUID()]) {
         expect(await keys.findActive(id)).toBeNull();
