@@ -27,6 +27,12 @@ Telegram-бот для управления ключами Xray: создани�
 
 `WEBHOOK_URL` и `WEBHOOK_SECRET` обязательны при `BOT_MODE=webhook`. Вебхук принимается на `POST /{GLOBAL_PREFIX}/telegram/webhook`, в режиме polling этот путь отвечает 404.
 
+## Локализация
+
+Переводы лежат в `src/i18n/locales/<код>.ftl` в формате [Fluent](https://projectfluent.org/). Язык пользователя определяется так: сохранённый выбор (`/language <код>`), затем `language_code` из Telegram, затем `ru`. Чтобы добавить язык, создайте файл `.ftl` с тем же набором ключей и добавьте код в `SUPPORTED_LOCALES` (`src/i18n/i18n.constants.ts`). Тест проверяет, что ключи во всех локалях совпадают.
+
+Пока выбор языка хранится в памяти и теряется при перезапуске. С появлением БД он будет сохраняться у пользователя.
+
 ## Требования
 
 Node.js **24.9+** (см. `.nvmrc`). Nest 12 поставляется как ESM, а Jest грузит его через нативный `require(esm)`, который есть только в Node 24.9+.
@@ -64,6 +70,7 @@ src/
 ├── common/filters/     # глобальные фильтры, guards, interceptors
 ├── config/             # схема env (zod) и типизированный AppConfigService
 ├── modules/health/     # health-check
+├── i18n/               # переводы (Fluent): I18nService, locales/*.ftl
 ├── telegram/           # бот: lifecycle, webhook, хендлеры, обёртки Bot API 10.4 (виджеты)
 ├── app.module.ts
 ├── setup-app.ts        # общая настройка приложения (main + e2e)

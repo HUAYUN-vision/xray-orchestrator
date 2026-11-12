@@ -9,8 +9,9 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { type Bot, webhookCallback } from 'grammy';
+import { webhookCallback } from 'grammy';
 import { AppConfigService } from '../config/app-config.service';
+import type { AppBot } from './bot-context';
 import { BOT } from './telegram.constants';
 
 /** Receives updates from Telegram in webhook mode: POST /{GLOBAL_PREFIX}/telegram/webhook. */
@@ -19,7 +20,7 @@ import { BOT } from './telegram.constants';
 export class TelegramWebhookController {
   private readonly handle?: (req: Request, res: Response) => Promise<void>;
 
-  constructor(@Inject(BOT) bot: Bot, config: AppConfigService) {
+  constructor(@Inject(BOT) bot: AppBot, config: AppConfigService) {
     if (config.get('BOT_MODE') === 'webhook') {
       // Checks the X-Telegram-Bot-Api-Secret-Token header and answers 401 on mismatch.
       this.handle = webhookCallback(bot, 'express', {

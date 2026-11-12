@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { Bot } from 'grammy';
+import type { AppBot } from './bot-context';
 import type { AppConfigService } from '../config/app-config.service';
 import type { Env } from '../config/env.validation';
 import type { BotHandler } from './bot-handler.interface';
@@ -30,7 +30,7 @@ describe('TelegramService', () => {
     const bot = makeBot();
     const handler: BotHandler = { register: jest.fn() };
     const service = new TelegramService(
-      bot as unknown as Bot,
+      bot as unknown as AppBot,
       [handler],
       makeConfig({ BOT_MODE: 'polling' }),
     );
@@ -48,7 +48,7 @@ describe('TelegramService', () => {
   it('sets the webhook with the secret in webhook mode', async () => {
     const bot = makeBot();
     const service = new TelegramService(
-      bot as unknown as Bot,
+      bot as unknown as AppBot,
       [],
       makeConfig({
         BOT_MODE: 'webhook',
@@ -69,7 +69,7 @@ describe('TelegramService', () => {
 
   it('stops polling on shutdown', async () => {
     const bot = makeBot();
-    const service = new TelegramService(bot as unknown as Bot, [], makeConfig({}));
+    const service = new TelegramService(bot as unknown as AppBot, [], makeConfig({}));
     await service.onApplicationShutdown();
     expect(bot.stop).toHaveBeenCalled();
   });

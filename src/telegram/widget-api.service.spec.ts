@@ -1,4 +1,4 @@
-import type { Bot } from 'grammy';
+import type { AppBot } from './bot-context';
 import { WidgetApiService } from './widget-api.service';
 
 describe('WidgetApiService', () => {
@@ -7,7 +7,7 @@ describe('WidgetApiService', () => {
   const answerWidgetQuery = jest.fn().mockResolvedValue(true);
   const bot = {
     api: { raw: { sendWidget, editMessageWidgetData, answerWidgetQuery } },
-  } as unknown as Bot;
+  } as unknown as AppBot;
   const service = new WidgetApiService(bot);
 
   beforeEach(() => jest.clearAllMocks());

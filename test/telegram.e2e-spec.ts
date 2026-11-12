@@ -5,15 +5,20 @@ import request from 'supertest';
 import { type App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/setup-app';
+import type { BotContext } from '../src/telegram/bot-context';
 import { BOT } from '../src/telegram/telegram.constants';
-import { makeOfflineBot } from './helpers/offline-bot';
+import { type ApiCall, makeOfflineBot, textUpdate } from './helpers/offline-bot';
 
 describe('Telegram (e2e)', () => {
   let app: INestApplication<App>;
-  let bot: Bot;
+  let bot: Bot<BotContext>;
+  let calls: ApiCall[];
+
+  const sentTexts = () =>
+    calls.filter((c) => c.method === 'sendMessage').map((c) => c.payload.text as string);
 
   beforeAll(async () => {
-    bot = makeOfflineBot();
+    ({ bot, calls } = makeOfflineBot());
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(BOT)
       .useValue(bot)
@@ -27,33 +32,35 @@ describe('Telegram (e2e)', () => {
     await app.close();
   });
 
-  it('starts the bot in polling mode on bootstrap', () => {
+  it('on bootstrap sets the localized menu and starts polling', () => {
+    expect(calls.filter((c) => c.method === 'setMyCommands')).toHaveLength(3);
     expect(bot.start).toHaveBeenCalled();
   });
 
-  it('answers /start through the registered handlers', async () => {
-    // Transformers must return the raw API envelope { ok, result }.
-    const sendMessage = jest.fn().mockResolvedValue({ ok: true, result: {} });
-    bot.api.config.use((prev, method, payload, signal) => {
-      if (method === 'sendMessage') return sendMessage(payload) as never;
-      return prev(method, payload, signal);
+  describe('updates', () => {
+    beforeEach(() => {
+      calls.length = 0;
     });
 
-    await bot.handleUpdate({
-      update_id: 1,
-      message: {
-        message_id: 1,
-        date: 0,
-        chat: { id: 42, type: 'private', first_name: 'U' },
-        from: { id: 42, is_bot: false, first_name: 'U' },
-        text: '/start',
-        entities: [{ type: 'bot_command', offset: 0, length: 6 }],
-      },
+    it('answers /start in the default language', async () => {
+      await bot.handleUpdate(textUpdate('/start'));
+      expect(sentTexts()).toEqual([expect.stringContaining('Привет')]);
     });
 
-    expect(sendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ chat_id: 42, text: expect.stringContaining('/help') }),
-    );
+    it('uses Telegram language_code when nothing is saved', async () => {
+      await bot.handleUpdate(textUpdate('/start', { id: 7, language_code: 'en-US' }));
+      expect(sentTexts()).toEqual([expect.stringContaining('Hi')]);
+    });
+
+    it('/language <code> switches the language for later messages', async () => {
+      const user = { id: 100, language_code: 'ru' };
+      await bot.handleUpdate(textUpdate('/language en', user, 2));
+      await bot.handleUpdate(textUpdate('/help', user, 3));
+      expect(sentTexts()).toEqual([
+        expect.stringContaining('Language switched to English'),
+        expect.stringContaining('Commands:'),
+      ]);
+    });
   });
 
   it('webhook endpoint is disabled in polling mode', () => {

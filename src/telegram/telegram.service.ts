@@ -5,12 +5,13 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { type Bot, GrammyError, HttpError } from 'grammy';
+import { GrammyError, HttpError } from 'grammy';
 import { AppConfigService } from '../config/app-config.service';
+import type { AppBot } from './bot-context';
 import type { BotHandler } from './bot-handler.interface';
 import { ALLOWED_UPDATES, BOT, BOT_HANDLERS } from './telegram.constants';
 
-type AllowedUpdates = NonNullable<Parameters<Bot['api']['setWebhook']>[1]>['allowed_updates'];
+type AllowedUpdates = NonNullable<Parameters<AppBot['api']['setWebhook']>[1]>['allowed_updates'];
 
 /** Registers handlers and runs the bot in polling or webhook mode, tied to the Nest lifecycle. */
 @Injectable()
@@ -18,7 +19,7 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
   private readonly logger = new Logger(TelegramService.name);
 
   constructor(
-    @Inject(BOT) private readonly bot: Bot,
+    @Inject(BOT) private readonly bot: AppBot,
     @Inject(BOT_HANDLERS) private readonly handlers: BotHandler[],
     private readonly config: AppConfigService,
   ) {}
@@ -28,6 +29,8 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
     this.bot.catch((err) => this.logUpdateError(err.error, err.ctx.update.update_id));
 
     const allowedUpdates = ALLOWED_UPDATES as unknown as AllowedUpdates;
+
+    for (const handler of this.handlers) await handler.init?.(this.bot);
 
     if (this.config.get('BOT_MODE') === 'webhook') {
       await this.bot.init();

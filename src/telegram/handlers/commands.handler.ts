@@ -1,24 +1,46 @@
-import { Injectable } from '@nestjs/common';
-import type { Bot, Context } from 'grammy';
+import { Injectable, Logger } from '@nestjs/common';
+import { DEFAULT_LOCALE } from '../../i18n/i18n.constants';
+import { I18nService } from '../../i18n/i18n.service';
+import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
 
-// Texts are placeholders until stage 1 (i18n).
-const START_TEXT = 'Привет! Я бот для управления ключами Xray.\n\nСписок команд: /help';
-const HELP_TEXT = ['Команды:', '/start — начать', '/help — эта справка'].join('\n');
+/** Commands shown in the Telegram menu; descriptions come from `command-<name>` keys. */
+export const MENU_COMMANDS = ['start', 'help', 'language'] as const;
 
-/** Basic commands: /start and /help. */
+/** Basic commands: /start and /help, plus the localized command menu. */
 @Injectable()
 export class CommandsHandler implements BotHandler {
-  register(bot: Bot): void {
+  private readonly logger = new Logger(CommandsHandler.name);
+
+  constructor(private readonly i18n: I18nService) {}
+
+  register(bot: AppBot): void {
     bot.command('start', (ctx) => this.start(ctx));
     bot.command('help', (ctx) => this.help(ctx));
   }
 
-  async start(ctx: Context): Promise<void> {
-    await ctx.reply(START_TEXT);
+  /** Sets the command menu per locale; the default-locale menu also serves other languages. */
+  async init(bot: AppBot): Promise<void> {
+    try {
+      for (const locale of this.i18n.locales) {
+        const commands = MENU_COMMANDS.map((command) => ({
+          command,
+          description: this.i18n.t(locale, `command-${command}`),
+        }));
+        await bot.api.setMyCommands(commands, { language_code: locale });
+        if (locale === DEFAULT_LOCALE) await bot.api.setMyCommands(commands);
+      }
+    } catch (err) {
+      // Menu is cosmetic: don't block startup on it.
+      this.logger.warn(`Failed to set bot commands: ${String(err)}`);
+    }
   }
 
-  async help(ctx: Context): Promise<void> {
-    await ctx.reply(HELP_TEXT);
+  async start(ctx: BotContext): Promise<void> {
+    await ctx.reply(ctx.t('start', { name: ctx.from?.first_name ?? '' }));
+  }
+
+  async help(ctx: BotContext): Promise<void> {
+    await ctx.reply(ctx.t('help'));
   }
 }

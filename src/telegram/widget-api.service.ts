@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Bot } from 'grammy';
 import type { Message } from 'grammy/types';
+import type { AppBot } from './bot-context';
 import { BOT } from './telegram.constants';
 import {
   type AnswerWidgetQueryParams,
@@ -19,7 +19,7 @@ type RawCall = (payload: object) => Promise<unknown>;
  */
 @Injectable()
 export class WidgetApiService {
-  constructor(@Inject(BOT) private readonly bot: Bot) {}
+  constructor(@Inject(BOT) private readonly bot: AppBot) {}
 
   async sendWidget(params: SendWidgetParams): Promise<Message & { widget?: Widget }> {
     assertMaxBytes('html', params.html, WIDGET_LIMITS.htmlBytes);

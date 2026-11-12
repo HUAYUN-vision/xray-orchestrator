@@ -13,7 +13,7 @@ describe('Health (e2e)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(BOT)
-      .useValue(makeOfflineBot())
+      .useValue(makeOfflineBot().bot)
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     setupApp(app);
