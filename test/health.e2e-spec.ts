@@ -4,7 +4,9 @@ import request from 'supertest';
 import { type App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/setup-app';
+import { DatabaseModule } from '../src/database/database.module';
 import { BOT } from '../src/telegram/telegram.constants';
+import { FakeDatabaseModule } from './helpers/fake-database.module';
 import { makeOfflineBot } from './helpers/offline-bot';
 
 describe('Health (e2e)', () => {
@@ -12,6 +14,8 @@ describe('Health (e2e)', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideModule(DatabaseModule)
+      .useModule(FakeDatabaseModule)
       .overrideProvider(BOT)
       .useValue(makeOfflineBot().bot)
       .compile();

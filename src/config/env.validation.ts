@@ -14,6 +14,17 @@ export const envSchema = z
       .default('false')
       .transform((v) => v === 'true'),
 
+    // Database
+    DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+    DB_MIGRATIONS_RUN: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((v) => v === 'true'),
+    DB_LOGGING: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+
     // Telegram
     BOT_TOKEN: z.string().regex(/^\d+:[\w-]+$/, 'must look like "<id>:<secret>"'),
     BOT_MODE: z.enum(['polling', 'webhook']).default('polling'),

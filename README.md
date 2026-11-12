@@ -5,6 +5,7 @@ Telegram-бот для управления ключами Xray: создани�
 ## Стек
 
 - **NestJS 12** + **TypeScript 6** (strict)
+- **TypeORM** + **PostgreSQL** — модуль `src/database/`, схема только через миграции
 - **grammY** — Telegram Bot API (long polling в dev, webhook в prod)
 - **ESLint 10** (flat config, type-checked) + **Prettier**
 - **Husky** + **lint-staged** + **commitlint** (Conventional Commits)
@@ -27,11 +28,28 @@ Telegram-бот для управления ключами Xray: создани�
 
 `WEBHOOK_URL` и `WEBHOOK_SECRET` обязательны при `BOT_MODE=webhook`. Вебхук принимается на `POST /{GLOBAL_PREFIX}/telegram/webhook`, в режиме polling этот путь отвечает 404.
 
+## База данных
+
+```bash
+docker compose up -d db   # Postgres на 127.0.0.1:5478
+```
+
+В `.env` нужен `DATABASE_URL=postgres://xray:xray@localhost:5478/xray`. Миграции применяются при старте приложения (`DB_MIGRATIONS_RUN=true`).
+
+| Скрипт                                                         | Описание                                   |
+| -------------------------------------------------------------- | ------------------------------------------ |
+| `npm run migration:generate -- src/database/migrations/<Name>` | миграция по изменениям entity              |
+| `npm run migration:run` / `migration:revert`                   | применить / откатить последнюю             |
+| `npm run migration:check`                                      | проверить, что миграции совпадают с entity |
+| `npm run test:db`                                              | тесты на настоящем Postgres (нужен Docker) |
+
+Новая entity: класс в `src/database/entities/`, добавить в `ENTITIES`, сгенерировать миграцию.
+
 ## Локализация
 
 Переводы лежат в `src/i18n/locales/<код>.ftl` в формате [Fluent](https://projectfluent.org/). Язык пользователя определяется так: сохранённый выбор (`/language <код>`), затем `language_code` из Telegram, затем `ru`. Чтобы добавить язык, создайте файл `.ftl` с тем же набором ключей и добавьте код в `SUPPORTED_LOCALES` (`src/i18n/i18n.constants.ts`). Тест проверяет, что ключи во всех локалях совпадают.
 
-Пока выбор языка хранится в памяти и теряется при перезапуске. С появлением БД он будет сохраняться у пользователя.
+Выбранный язык хранится в БД (`users.language`).
 
 ## Требования
 
@@ -70,6 +88,7 @@ src/
 ├── common/filters/     # глобальные фильтры, guards, interceptors
 ├── config/             # схема env (zod) и типизированный AppConfigService
 ├── modules/health/     # health-check
+├── database/           # TypeORM: entities, migrations, repositories (единственное место работы с БД)
 ├── i18n/               # переводы (Fluent): I18nService, locales/*.ftl
 ├── telegram/           # бот: lifecycle, webhook, хендлеры, обёртки Bot API 10.4 (виджеты)
 ├── app.module.ts

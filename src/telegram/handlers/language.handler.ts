@@ -1,7 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { LOCALE_STORE } from '../../i18n/i18n.constants';
+import { Injectable } from '@nestjs/common';
+import { UsersRepository } from '../../database/repositories/users.repository';
 import { I18nService } from '../../i18n/i18n.service';
-import type { LocaleStore } from '../../i18n/locale-store';
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
 
@@ -13,7 +12,7 @@ import type { BotHandler } from '../bot-handler.interface';
 export class LanguageHandler implements BotHandler {
   constructor(
     private readonly i18n: I18nService,
-    @Inject(LOCALE_STORE) private readonly store: LocaleStore,
+    private readonly users: UsersRepository,
   ) {}
 
   register(bot: AppBot): void {
@@ -36,7 +35,10 @@ export class LanguageHandler implements BotHandler {
       return;
     }
 
-    if (ctx.from) await this.store.set(ctx.from.id, code);
+    if (ctx.user) {
+      await this.users.setLanguage(ctx.user.telegramId, code);
+      ctx.user.language = code;
+    }
     ctx.locale = code;
     await ctx.reply(ctx.t('language-changed', { language: ctx.t('language-name') }));
   }

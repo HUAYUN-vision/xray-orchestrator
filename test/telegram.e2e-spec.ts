@@ -6,7 +6,9 @@ import { type App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/setup-app';
 import type { BotContext } from '../src/telegram/bot-context';
+import { DatabaseModule } from '../src/database/database.module';
 import { BOT } from '../src/telegram/telegram.constants';
+import { FakeDatabaseModule } from './helpers/fake-database.module';
 import { type ApiCall, makeOfflineBot, textUpdate } from './helpers/offline-bot';
 
 describe('Telegram (e2e)', () => {
@@ -20,6 +22,8 @@ describe('Telegram (e2e)', () => {
   beforeAll(async () => {
     ({ bot, calls } = makeOfflineBot());
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideModule(DatabaseModule)
+      .useModule(FakeDatabaseModule)
       .overrideProvider(BOT)
       .useValue(bot)
       .compile();

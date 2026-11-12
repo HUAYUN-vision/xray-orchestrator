@@ -1,39 +1,42 @@
+import type { User } from '../../database/entities';
 import { I18nService } from '../../i18n/i18n.service';
-import { InMemoryLocaleStore } from '../../i18n/locale-store';
 import type { BotContext } from '../bot-context';
 import { I18nMiddleware } from './i18n.middleware';
 
 describe('I18nMiddleware', () => {
-  const i18n = new I18nService();
+  const middleware = new I18nMiddleware(new I18nService());
 
-  async function run(from: BotContext['from'], saved?: 'ru' | 'en') {
-    const store = new InMemoryLocaleStore();
-    if (from && saved) await store.set(from.id, saved);
-    const ctx = { from } as BotContext;
+  async function run(languageCode?: string, saved?: string | null) {
+    const ctx = {
+      from: { id: 1, is_bot: false, first_name: 'A', language_code: languageCode },
+      user: saved === undefined ? undefined : ({ language: saved } as User),
+    } as BotContext;
     const next = jest.fn().mockResolvedValue(undefined);
-    await new I18nMiddleware(i18n, store).handle(ctx, next);
+    await middleware.handle(ctx, next);
     expect(next).toHaveBeenCalled();
     return ctx;
   }
 
-  it('prefers the saved choice over language_code', async () => {
-    const ctx = await run({ id: 1, is_bot: false, first_name: 'A', language_code: 'en' }, 'ru');
-    expect(ctx.locale).toBe('ru');
+  it("prefers the user's saved language over language_code", async () => {
+    expect((await run('en', 'ru')).locale).toBe('ru');
   });
 
-  it('falls back to language_code', async () => {
-    const ctx = await run({ id: 1, is_bot: false, first_name: 'A', language_code: 'en-GB' });
+  it('falls back to language_code when nothing is saved', async () => {
+    const ctx = await run('en-GB', null);
     expect(ctx.locale).toBe('en');
     expect(ctx.t('language-name')).toBe('English');
   });
 
-  it('uses the default locale for updates without a user', async () => {
-    const ctx = await run(undefined);
-    expect(ctx.locale).toBe('ru');
+  it('ignores an unsupported saved value', async () => {
+    expect((await run('en', 'xx')).locale).toBe('en');
+  });
+
+  it('uses the default locale when nothing is known', async () => {
+    expect((await run()).locale).toBe('ru');
   });
 
   it('ctx.t follows ctx.locale changes', async () => {
-    const ctx = await run({ id: 1, is_bot: false, first_name: 'A' });
+    const ctx = await run();
     ctx.locale = 'en';
     expect(ctx.t('language-name')).toBe('English');
   });

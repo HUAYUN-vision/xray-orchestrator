@@ -1,19 +1,21 @@
 import { Module } from '@nestjs/common';
 import { Bot } from 'grammy';
 import { AppConfigService } from '../config/app-config.service';
+import { DatabaseModule } from '../database/database.module';
 import { I18nModule } from '../i18n/i18n.module';
 import type { BotContext } from './bot-context';
 import type { BotHandler } from './bot-handler.interface';
 import { CommandsHandler } from './handlers/commands.handler';
 import { I18nMiddleware } from './handlers/i18n.middleware';
 import { LanguageHandler } from './handlers/language.handler';
+import { UserMiddleware } from './handlers/user.middleware';
 import { BOT, BOT_HANDLERS } from './telegram.constants';
 import { TelegramWebhookController } from './telegram-webhook.controller';
 import { TelegramService } from './telegram.service';
 import { WidgetApiService } from './widget-api.service';
 
 @Module({
-  imports: [I18nModule],
+  imports: [DatabaseModule, I18nModule],
   controllers: [TelegramWebhookController],
   providers: [
     {
@@ -21,14 +23,15 @@ import { WidgetApiService } from './widget-api.service';
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => new Bot<BotContext>(config.get('BOT_TOKEN')),
     },
+    UserMiddleware,
     I18nMiddleware,
     CommandsHandler,
     LanguageHandler,
     {
-      // Order matters: middleware runs in this order. I18nMiddleware must stay first.
+      // Order matters: middleware runs in this order. UserMiddleware → I18nMiddleware first.
       // New handlers: add the class to providers and to `inject` here.
       provide: BOT_HANDLERS,
-      inject: [I18nMiddleware, CommandsHandler, LanguageHandler],
+      inject: [UserMiddleware, I18nMiddleware, CommandsHandler, LanguageHandler],
       useFactory: (...handlers: BotHandler[]) => handlers,
     },
     TelegramService,
