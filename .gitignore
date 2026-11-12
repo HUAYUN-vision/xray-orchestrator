@@ -30,3 +30,9 @@ coverage/
 !.vscode/extensions.json
 !.vscode/settings.json
 .DS_Store
+
+# Локальные заметки и план для Claude (не в репо)
+CLAUDE.md
+docs/PLAN.md
+docs/decisions.md
+docs/telegram-widgets.md

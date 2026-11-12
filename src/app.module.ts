@@ -5,6 +5,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { AppConfigModule } from './config/config.module';
 import { AppConfigService } from './config/app-config.service';
 import { HealthModule } from './modules/health/health.module';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { HealthModule } from './modules/health/health.module';
       }),
     }),
     HealthModule,
+    TelegramModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -1,10 +1,11 @@
-# NestJS Template
+# xray-orchestrator
 
-Стартовый шаблон для NestJS-сервисов.
+Telegram-бот для управления ключами Xray: создание, удаление, выдача ссылок. Построен на шаблоне [nestjs-template](https://github.com/HUAYUN-vision/nestjs-template).
 
 ## Стек
 
 - **NestJS 12** + **TypeScript 6** (strict)
+- **grammY** — Telegram Bot API (long polling в dev, webhook в prod)
 - **ESLint 10** (flat config, type-checked) + **Prettier**
 - **Husky** + **lint-staged** + **commitlint** (Conventional Commits)
 - **@nestjs/config** + **zod** — валидация env при старте
@@ -14,6 +15,17 @@
 - **helmet**, CORS, глобальный `ValidationPipe`, URI-версионирование (`/api/v1/...`)
 - Глобальный exception filter с единым форматом ошибок
 - **Jest** (unit + e2e), Docker (multi-stage, non-root, healthcheck), GitHub Actions CI, Dependabot
+
+## Telegram
+
+| Переменная       | Описание                                                          |
+| ---------------- | ----------------------------------------------------------------- |
+| `BOT_TOKEN`      | токен от @BotFather, обязателен                                   |
+| `BOT_MODE`       | `polling` (по умолчанию) или `webhook`                            |
+| `WEBHOOK_URL`    | https-адрес вебхука, например `https://host/api/telegram/webhook` |
+| `WEBHOOK_SECRET` | секрет для заголовка `X-Telegram-Bot-Api-Secret-Token`            |
+
+`WEBHOOK_URL` и `WEBHOOK_SECRET` обязательны при `BOT_MODE=webhook`. Вебхук принимается на `POST /{GLOBAL_PREFIX}/telegram/webhook`, в режиме polling этот путь отвечает 404.
 
 ## Требования
 
@@ -52,6 +64,7 @@ src/
 ├── common/filters/     # глобальные фильтры, guards, interceptors
 ├── config/             # схема env (zod) и типизированный AppConfigService
 ├── modules/health/     # health-check
+├── telegram/           # бот: lifecycle, webhook, хендлеры, обёртки Bot API 10.4 (виджеты)
 ├── app.module.ts
 ├── setup-app.ts        # общая настройка приложения (main + e2e)
 └── main.ts

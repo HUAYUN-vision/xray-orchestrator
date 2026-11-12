@@ -1,7 +1,7 @@
 {
-  "name": "nestjs-template",
+  "name": "xray-orchestrator",
   "version": "0.0.1",
-  "description": "NestJS starter template",
+  "description": "Telegram bot for managing Xray keys",
   "private": true,
   "license": "MIT",
   "engines": {
@@ -33,6 +33,7 @@
     "@nestjs/terminus": "^12.1.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "grammy": "^1.46.0",
     "helmet": "^8.3.0",
     "nestjs-pino": "^5.3.1",
     "pino": "^10.4.0",

@@ -4,12 +4,17 @@ import request from 'supertest';
 import { type App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/setup-app';
+import { BOT } from '../src/telegram/telegram.constants';
+import { makeOfflineBot } from './helpers/offline-bot';
 
 describe('Health (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(BOT)
+      .useValue(makeOfflineBot())
+      .compile();
     app = moduleRef.createNestApplication({ logger: false });
     setupApp(app);
     await app.init();
