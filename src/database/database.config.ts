@@ -18,6 +18,9 @@ export function buildDataSourceOptions(
     migrationsTableName: 'migrations',
     // Schema changes go through migrations only.
     synchronize: false,
+    // gen_random_uuid() is built into Postgres 13+, no extension needed.
+    uuidExtension: 'pgcrypto',
+    installExtensions: false,
     ...overrides,
   } as DataSourceOptions;
 }
