@@ -9,6 +9,11 @@ export const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     CORS_ORIGIN: z.string().default('*'),
+    /** Public https base URL of this service, used in subscription links. */
+    PUBLIC_URL: z
+      .url({ protocol: /^https$/ })
+      .transform((u) => u.replace(/\/+$/, ''))
+      .optional(),
     SWAGGER_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -24,6 +29,9 @@ export const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+
+    // Xray nodes (xray-server-instance)
+    XRAY_NODE_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 
     // Telegram
     BOT_TOKEN: z.string().regex(/^\d+:[\w-]+$/, 'must look like "<id>:<secret>"'),

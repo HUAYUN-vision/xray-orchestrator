@@ -67,6 +67,13 @@ describe('Telegram (e2e)', () => {
     });
   });
 
+  it('subscription: 400 for a malformed key id, 404 for an unknown key', async () => {
+    await request(app.getHttpServer()).get('/api/sub/not-a-uuid').expect(400);
+    await request(app.getHttpServer())
+      .get('/api/sub/0b3f2c1e-8a7d-4c3b-9e2f-1a2b3c4d5e6f')
+      .expect(404);
+  });
+
   it('webhook endpoint is disabled in polling mode', () => {
     return request(app.getHttpServer()).post('/api/telegram/webhook').send({}).expect(404);
   });

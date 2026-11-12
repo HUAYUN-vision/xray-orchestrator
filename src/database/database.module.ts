@@ -5,6 +5,8 @@ import { AppConfigService } from '../config/app-config.service';
 import { buildDataSourceOptions } from './database.config';
 import { DatabaseHealthIndicator } from './database.health';
 import { ENTITIES } from './entities';
+import { ServersRepository } from './repositories/servers.repository';
+import { UserKeysRepository } from './repositories/user-keys.repository';
 import { UsersRepository } from './repositories/users.repository';
 
 /**
@@ -24,7 +26,7 @@ import { UsersRepository } from './repositories/users.repository';
     TypeOrmModule.forFeature(ENTITIES),
     TerminusModule,
   ],
-  providers: [UsersRepository, DatabaseHealthIndicator],
-  exports: [UsersRepository, DatabaseHealthIndicator],
+  providers: [UsersRepository, ServersRepository, UserKeysRepository, DatabaseHealthIndicator],
+  exports: [UsersRepository, ServersRepository, UserKeysRepository, DatabaseHealthIndicator],
 })
 export class DatabaseModule {}

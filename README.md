@@ -36,14 +36,21 @@ docker compose up -d db   # Postgres на 127.0.0.1:5478
 
 В `.env` нужен `DATABASE_URL=postgres://xray:xray@localhost:5478/xray`. Миграции применяются при старте приложения (`DB_MIGRATIONS_RUN=true`).
 
-| Скрипт                                                         | Описание                                   |
-| -------------------------------------------------------------- | ------------------------------------------ |
-| `npm run migration:generate -- src/database/migrations/<Name>` | миграция по изменениям entity              |
-| `npm run migration:run` / `migration:revert`                   | применить / откатить последнюю             |
-| `npm run migration:check`                                      | проверить, что миграции совпадают с entity |
-| `npm run test:db`                                              | тесты на настоящем Postgres (нужен Docker) |
+| Скрипт                                                         | Описание                                                                      |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `npm run migration:generate -- src/database/migrations/<Name>` | миграция по изменениям entity                                                 |
+| `npm run migration:run` / `migration:revert`                   | применить / откатить последнюю                                                |
+| `npm run migration:check`                                      | проверить, что миграции совпадают с entity                                    |
+| `npm run test:db`                                              | тесты на настоящем Postgres (нужен Docker)                                    |
+| `npm run test:xray`                                            | тесты на настоящем xray-server-instance (Docker, образ `XRAY_INSTANCE_IMAGE`) |
 
 Новая entity: класс в `src/database/entities/`, добавить в `ENTITIES`, сгенерировать миграцию.
+
+## Подписка для VPN-клиентов
+
+`GET /{GLOBAL_PREFIX}/sub/<keyId>` отдаёт подписку для ключа: полный Xray JSON-конфиг на каждый включённый сервер (VLESS + Reality). Её понимают Happ, v2rayN, Streisand, V2Box, Hiddify и INCY. В конфигах настроена маршрутизация: домены из `src/modules/subscription/domains/` (российские и китайские банки, госсервисы, маркетплейсы) и локальные сети идут напрямую, остальной трафик через VPN. Списки скопированы из `xray-server-instance/domains`, обновлять их нужно в обоих местах.
+
+Для ссылок нужен `PUBLIC_URL` (публичный https-адрес сервиса). Заголовок `Subscription-Userinfo` сообщает клиенту трафик и дату окончания ключа. Недоступный сервер в подписку не попадает.
 
 ## Локализация
 

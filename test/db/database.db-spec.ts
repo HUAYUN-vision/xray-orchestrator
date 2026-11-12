@@ -10,7 +10,13 @@ import {
   User,
   UserKey,
 } from '../../src/database/entities';
-import { Currency, TransactionKind, TransactionType } from '../../src/database/enums';
+import {
+  Currency,
+  TransactionKind,
+  TransactionType,
+  UserKeyStatus,
+} from '../../src/database/enums';
+import { UserKeysRepository } from '../../src/database/repositories/user-keys.repository';
 import { UsersRepository } from '../../src/database/repositories/users.repository';
 
 /** Runs against a real Postgres in Docker: migrations, schema sync, constraints and repository queries. */
@@ -90,6 +96,37 @@ describe('Database (db)', () => {
       await users.setLanguage(3, 'en');
       const user = await users.syncFromTelegram({ telegramId: 3, username: 'd', firstName: 'D' });
       expect(user.language).toBe('en');
+    });
+  });
+
+  describe('UserKeysRepository', () => {
+    it('findActive returns only active, unexpired, not deleted keys', async () => {
+      const user = await newUser();
+      const tariff = await dataSource
+        .getRepository(Tariff)
+        .save({ durationDays: 30, price: '199', currency: Currency.RUB });
+      const repo = dataSource.getRepository(UserKey);
+      const base = { userId: user.id, tariffId: tariff.id };
+      const future = new Date(Date.now() + 86_400_000);
+      const [active, expired, past, deleted] = [
+        randomUUID(),
+        randomUUID(),
+        randomUUID(),
+        randomUUID(),
+      ];
+      await repo.insert([
+        { ...base, id: active, expiresAt: future },
+        { ...base, id: expired, expiresAt: future, status: UserKeyStatus.Expired },
+        { ...base, id: past, expiresAt: new Date(Date.now() - 1000) },
+        { ...base, id: deleted, expiresAt: future },
+      ]);
+      await repo.softDelete(deleted);
+
+      const keys = new UserKeysRepository(repo);
+      expect((await keys.findActive(active))?.id).toBe(active);
+      for (const id of [expired, past, deleted, randomUUID()]) {
+        expect(await keys.findActive(id)).toBeNull();
+      }
     });
   });
 
