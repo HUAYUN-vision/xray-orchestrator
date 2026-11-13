@@ -30,7 +30,13 @@ export class TelegramService implements OnApplicationBootstrap, OnApplicationShu
 
     const allowedUpdates = ALLOWED_UPDATES as unknown as AllowedUpdates;
 
-    for (const handler of this.handlers) await handler.init?.(this.bot);
+    // Not awaited: handler init (command menus) is cosmetic, and a slow Telegram API
+    // must not block startup. Handlers catch their own errors; this is a safety net.
+    void Promise.allSettled(this.handlers.map(async (h) => h.init?.(this.bot))).then((results) => {
+      for (const r of results) {
+        if (r.status === 'rejected') this.logger.warn(`Handler init failed: ${String(r.reason)}`);
+      }
+    });
 
     if (this.config.get('BOT_MODE') === 'webhook') {
       await this.bot.init();

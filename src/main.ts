@@ -8,6 +8,9 @@ import { setupApp } from './setup-app';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
+  // useLogger does not flush the buffer by itself: without this, startup logs show up
+  // only after all bootstrap hooks finish, and a slow hook looks like a hang.
+  app.flushLogs();
 
   setupApp(app);
 

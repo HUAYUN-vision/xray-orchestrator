@@ -67,6 +67,24 @@ describe('TelegramService', () => {
     expect(bot.start).not.toHaveBeenCalled();
   });
 
+  it('does not wait for handler init before starting the bot', async () => {
+    const bot = makeBot();
+    const handler: BotHandler = {
+      register: jest.fn(),
+      init: jest.fn(() => new Promise<void>(() => {})),
+    };
+    const service = new TelegramService(
+      bot as unknown as AppBot,
+      [handler],
+      makeConfig({ BOT_MODE: 'polling' }),
+    );
+
+    await service.onApplicationBootstrap();
+
+    expect(handler.init).toHaveBeenCalledWith(bot);
+    expect(bot.start).toHaveBeenCalled();
+  });
+
   it('stops polling on shutdown', async () => {
     const bot = makeBot();
     const service = new TelegramService(bot as unknown as AppBot, [], makeConfig({}));
