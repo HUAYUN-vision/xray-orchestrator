@@ -37,8 +37,7 @@ w-until = until
 w-expired = expired
 w-pay-title = Payment
 w-pay = Pay
-w-copy = Copy subscription link
-w-copied = Link copied
+w-copy = Get subscription link
 w-howto = Add the subscription link to Hiddify, v2rayN, v2rayNG, Streisand or FoXray. Russian and Chinese sites open directly, without VPN.
 w-m-ok = Key created
 w-m-funds = Insufficient funds
@@ -49,5 +48,10 @@ w-m-srv = No servers available, try later
 w-m-fail = Could not create the key, money returned
 w-m-tariff = This plan is unavailable
 w-m-gone = Key not found
+w-m-link = The link is sent in a message below
 w-m-slow = Too fast, wait a couple of seconds
 w-m-err = Something went wrong, try again
+
+# Subscription link (a regular message: copying is blocked inside the widget)
+sub-link = Subscription link for your key. Add it to Hiddify, v2rayN, v2rayNG, Streisand or FoXray:
+sub-copy = 📋 Copy link

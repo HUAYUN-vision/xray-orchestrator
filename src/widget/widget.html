@@ -117,13 +117,6 @@
         noteErr = true;
         draw();
       }
-      function copy() {
-        if (!S || !S.u) return;
-        W.copyText(S.u);
-        note = L.copied;
-        noteErr = false;
-        draw();
-      }
       function draw() {
         var s = S || {},
           h = '';
@@ -164,9 +157,7 @@
           h += btn(L.back, 'b');
         } else if (s.s === 'k') {
           h += '<h4>🔑 ' + s.i.slice(0, 8) + '</h4><p>' + till(s.a, s.e) + '</p>';
-          if (s.u)
-            h +=
-              '<p class="mut">' + L.howto + '</p><button onclick="copy()">' + L.copy + '</button>';
+          if (s.u) h += '<p class="mut">' + L.howto + '</p>' + btn(L.copy, 'l:' + s.i);
           h += btn(L.back, 'h');
         } else {
           h += '<p class="mut">' + L.loading + '</p>' + btn(L.refresh, 'h');

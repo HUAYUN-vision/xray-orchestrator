@@ -9,6 +9,7 @@ describe('parseCommand', () => {
     ['b', { c: 'tariffs' }],
     [`t:${ID}`, { c: 'pay', tariffId: ID }],
     [`k:${ID}`, { c: 'key', keyId: ID }],
+    [`l:${ID}`, { c: 'link', keyId: ID }],
     [
       `p:${ID}:usdt:12345:2.41`,
       { c: 'buy', tariffId: ID, currency: Currency.USDT, seqno: 12345, amount: '2.41' },
@@ -26,6 +27,7 @@ describe('parseCommand', () => {
     'x',
     `t:${ID.toUpperCase()}`,
     `k:${ID}x`,
+    `l:${ID}x`,
     `p:${ID}:eur:1:1`,
     `p:${ID}:rub:1:1.001`,
     `p:${ID}:rub:-1:1`,

@@ -7,7 +7,17 @@ import { Currency } from '../database/enums';
 
 /** Message shown on top of the screen; text is `w-m-<code>`. */
 export type WidgetMessage =
-  'ok' | 'funds' | 'stale' | 'price' | 'rates' | 'srv' | 'fail' | 'tariff' | 'gone' | 'err';
+  | 'ok'
+  | 'funds'
+  | 'stale'
+  | 'price'
+  | 'rates'
+  | 'srv'
+  | 'fail'
+  | 'tariff'
+  | 'gone'
+  | 'link'
+  | 'err';
 
 export type Balances = Record<Currency, string>;
 
@@ -40,13 +50,17 @@ export interface PayState extends Base {
   o: [Currency, string][];
 }
 
-/** Key: id, expiresAt, active, subscription URL (absent if PUBLIC_URL is not set). */
+/**
+ * Key: id, expiresAt, active, `u: 1` if a subscription link can be sent.
+ * The link itself is not in chat_data: widget messages are protected and copyText
+ * does not work there, so the bot sends the link as a regular message (D17).
+ */
 export interface KeyState extends Base {
   s: 'k';
   i: string;
   e: number;
   a: 0 | 1;
-  u?: string;
+  u?: 1;
 }
 
 export type WidgetState = HomeState | TariffsState | PayState | KeyState;
@@ -56,13 +70,15 @@ export type WidgetCommand =
   | { c: 'tariffs' }
   | { c: 'pay'; tariffId: string }
   | { c: 'buy'; tariffId: string; currency: Currency; seqno: number; amount: string }
-  | { c: 'key'; keyId: string };
+  | { c: 'key'; keyId: string }
+  | { c: 'link'; keyId: string };
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const CURRENCY = Object.values(Currency).join('|');
 const BUY_RE = new RegExp(`^p:(${UUID}):(${CURRENCY}):(\\d{1,9}):(\\d{1,12}(?:\\.\\d{1,2})?)$`);
 const PAY_RE = new RegExp(`^t:(${UUID})$`);
 const KEY_RE = new RegExp(`^k:(${UUID})$`);
+const LINK_RE = new RegExp(`^l:(${UUID})$`);
 
 /** Parses a command from the widget; `null` for anything unexpected. */
 export function parseCommand(data: string): WidgetCommand | null {
@@ -72,6 +88,8 @@ export function parseCommand(data: string): WidgetCommand | null {
   if (m) return { c: 'pay', tariffId: m[1] };
   m = KEY_RE.exec(data);
   if (m) return { c: 'key', keyId: m[1] };
+  m = LINK_RE.exec(data);
+  if (m) return { c: 'link', keyId: m[1] };
   m = BUY_RE.exec(data);
   if (m) {
     return {

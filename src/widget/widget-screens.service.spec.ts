@@ -87,12 +87,8 @@ describe('WidgetScreensService', () => {
     });
   });
 
-  it('key screen has the subscription URL; a foreign key goes home with "gone"', async () => {
-    await expect(run({ c: 'key', keyId: K })).resolves.toMatchObject({
-      s: 'k',
-      a: 1,
-      u: `https://x.test/api/sub/${K}`,
-    });
+  it('key screen flags the link without putting it in chat_data; a foreign key goes home with "gone"', async () => {
+    await expect(run({ c: 'key', keyId: K })).resolves.toMatchObject({ s: 'k', a: 1, u: 1 });
     deps.keys.findOwned.mockResolvedValue(null);
     await expect(run({ c: 'key', keyId: K })).resolves.toMatchObject({ s: 'h', m: 'gone' });
   });
@@ -102,6 +98,23 @@ describe('WidgetScreensService', () => {
     const state = await run({ c: 'key', keyId: K });
     expect(state).toMatchObject({ s: 'k', a: 0 });
     expect(state).not.toHaveProperty('u', expect.anything());
+  });
+
+  it('no link flag when PUBLIC_URL is not set', async () => {
+    deps.subscription.buildUrl.mockImplementation(() => {
+      throw new Error('PUBLIC_URL is not set');
+    });
+    const state = await run({ c: 'key', keyId: K });
+    expect(state).toMatchObject({ s: 'k', a: 1 });
+    expect(state).not.toHaveProperty('u', expect.anything());
+  });
+
+  it('subscriptionUrl: only for an own active key', async () => {
+    await expect(service.subscriptionUrl(U, K)).resolves.toBe(`https://x.test/api/sub/${K}`);
+    deps.keys.findOwned.mockResolvedValue({ ...key, status: UserKeyStatus.Expired });
+    await expect(service.subscriptionUrl(U, K)).resolves.toBeNull();
+    deps.keys.findOwned.mockResolvedValue(null);
+    await expect(service.subscriptionUrl(U, K)).resolves.toBeNull();
   });
 
   it('buy: passes seqno and the shown amount, shows the new key', async () => {

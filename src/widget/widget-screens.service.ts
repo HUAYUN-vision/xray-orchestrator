@@ -48,6 +48,7 @@ export class WidgetScreensService {
         case 'pay':
           return await this.pay(userId, cmd.tariffId);
         case 'key':
+        case 'link':
           return await this.key(userId, cmd.keyId);
         case 'buy':
           return await this.buy(userId, cmd);
@@ -108,20 +109,11 @@ export class WidgetScreensService {
     };
   }
 
-  private async key(
-    userId: string,
-    keyId: string,
-    m?: WidgetMessage,
-  ): Promise<KeyState | HomeState> {
+  /** Key screen; a missing or foreign key goes home with "gone". */
+  async key(userId: string, keyId: string, m?: WidgetMessage): Promise<KeyState | HomeState> {
     const key = await this.keys.findOwned(keyId, userId);
     if (!key) return this.home(userId, 'gone');
     const active = isActive(key, Date.now());
-    let url: string | undefined;
-    try {
-      url = active ? this.subscription.buildUrl(key.id) : undefined;
-    } catch (err) {
-      this.logger.warn(String(err));
-    }
     return {
       s: 'k',
       n: Date.now(),
@@ -129,8 +121,25 @@ export class WidgetScreensService {
       i: key.id,
       e: unix(key.expiresAt),
       a: active ? 1 : 0,
-      u: url,
+      u: active && this.buildUrl(key.id) ? 1 : undefined,
     };
+  }
+
+  /** Subscription URL of the user's active key; `null` if unavailable. */
+  async subscriptionUrl(userId: string, keyId: string): Promise<string | null> {
+    const key = await this.keys.findOwned(keyId, userId);
+    if (!key || !isActive(key, Date.now())) return null;
+    return this.buildUrl(key.id);
+  }
+
+  /** `null` if PUBLIC_URL is not set. */
+  private buildUrl(keyId: string): string | null {
+    try {
+      return this.subscription.buildUrl(keyId);
+    } catch (err) {
+      this.logger.warn(String(err));
+      return null;
+    }
   }
 
   private async buy(
