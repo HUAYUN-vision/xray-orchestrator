@@ -11,6 +11,10 @@ type PublicApi<T> = { [K in keyof T]: T[K] };
 export class InMemoryUsersRepository implements PublicApi<UsersRepository> {
   readonly users = new Map<number, User>();
 
+  findByIds(ids: string[]): Promise<User[]> {
+    return Promise.resolve([...this.users.values()].filter((u) => ids.includes(u.id)));
+  }
+
   findByTelegramId(telegramId: number): Promise<User | null> {
     return Promise.resolve(this.users.get(telegramId) ?? null);
   }

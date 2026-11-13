@@ -3,9 +3,11 @@ import { Bot } from 'grammy';
 import { AppConfigService } from '../config/app-config.service';
 import { DatabaseModule } from '../database/database.module';
 import { I18nModule } from '../i18n/i18n.module';
+import { ServersModule } from '../modules/servers/servers.module';
 import { WidgetModule } from '../widget/widget.module';
 import type { BotContext } from './bot-context';
 import type { BotHandler } from './bot-handler.interface';
+import { AdminHandler } from './handlers/admin.handler';
 import { CommandsHandler } from './handlers/commands.handler';
 import { I18nMiddleware } from './handlers/i18n.middleware';
 import { LanguageHandler } from './handlers/language.handler';
@@ -17,7 +19,7 @@ import { TelegramService } from './telegram.service';
 import { WidgetApiService } from './widget-api.service';
 
 @Module({
-  imports: [DatabaseModule, I18nModule, WidgetModule],
+  imports: [DatabaseModule, I18nModule, WidgetModule, ServersModule],
   controllers: [TelegramWebhookController],
   providers: [
     {
@@ -29,12 +31,20 @@ import { WidgetApiService } from './widget-api.service';
     I18nMiddleware,
     CommandsHandler,
     LanguageHandler,
+    AdminHandler,
     WidgetHandler,
     {
       // Order matters: middleware runs in this order. UserMiddleware → I18nMiddleware first.
       // New handlers: add the class to providers and to `inject` here.
       provide: BOT_HANDLERS,
-      inject: [UserMiddleware, I18nMiddleware, CommandsHandler, LanguageHandler, WidgetHandler],
+      inject: [
+        UserMiddleware,
+        I18nMiddleware,
+        CommandsHandler,
+        LanguageHandler,
+        AdminHandler,
+        WidgetHandler,
+      ],
       useFactory: (...handlers: BotHandler[]) => handlers,
     },
     TelegramService,

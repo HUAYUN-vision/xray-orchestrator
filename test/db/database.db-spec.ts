@@ -18,6 +18,7 @@ import {
 } from '../../src/database/enums';
 import { InsufficientFundsError, StaleBalanceError } from '../../src/database/balance-ops';
 import { BalanceRepository } from '../../src/database/repositories/balance.repository';
+import { ServersRepository } from '../../src/database/repositories/servers.repository';
 import { UserKeysRepository } from '../../src/database/repositories/user-keys.repository';
 import { UsersRepository } from '../../src/database/repositories/users.repository';
 
@@ -265,6 +266,42 @@ describe('Database (db)', () => {
       const unknown = randomUUID();
       const dead = await keys.findDeadIds([live.id, past.id, deleted.id, unknown]);
       expect(dead.sort()).toEqual([past.id, deleted.id].sort());
+
+      // Cleaning a disabled server: every key of ours, in any status; unknown ids are not ours.
+      const known = await keys.findKnownIds([live.id, past.id, deleted.id, unknown]);
+      expect(known.sort()).toEqual([live.id, past.id, deleted.id].sort());
+    });
+  });
+
+  describe('ServersRepository', () => {
+    it('create → setEnabled → countEnabled → delete; code and host are unique', async () => {
+      const servers = new ServersRepository(dataSource.getRepository(Server));
+      const input = { code: 'sg', host: '10.0.0.1', apiPort: 440, apiKey: 'secret' };
+      const created = await servers.create(input);
+      expect(created).toMatchObject({ ...input, enabled: true });
+
+      expect(await servers.existsByCodeOrHost('sg', 'other')).toBe(true);
+      expect(await servers.existsByCodeOrHost('xx', '10.0.0.1')).toBe(true);
+      expect(await servers.existsByCodeOrHost('xx', 'other')).toBe(false);
+
+      const before = await servers.countEnabled();
+      expect(await servers.setEnabled(created.id, false)).toBe(true);
+      expect(await servers.countEnabled()).toBe(before - 1);
+      expect((await servers.findEnabled()).map((s) => s.id)).not.toContain(created.id);
+      expect((await servers.findById(created.id))?.apiKey).toBe('secret');
+
+      await servers.delete(created.id);
+      expect(await servers.findById(created.id)).toBeNull();
+      expect(await servers.setEnabled(created.id, true)).toBe(false);
+    });
+  });
+
+  describe('UsersRepository.findByIds', () => {
+    it('finds users by uuid; empty list → no query', async () => {
+      const a = await newUser(901);
+      await newUser(902);
+      expect((await users.findByIds([a.id, randomUUID()])).map((u) => u.id)).toEqual([a.id]);
+      expect(await users.findByIds([])).toEqual([]);
     });
   });
 

@@ -3,7 +3,8 @@ import type { ServerWithKey } from '../../database/repositories/servers.reposito
 import { XrayNodeError } from '../xray/xray-node.client';
 import { KeySyncService } from './key-sync.service';
 
-const server = (code: string) => ({ id: code, code, host: `${code}.example.com` }) as ServerWithKey;
+const server = (code: string, enabled = true) =>
+  ({ id: code, code, host: `${code}.example.com`, enabled }) as ServerWithKey;
 const [A, B, C, D] = [
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
@@ -27,10 +28,11 @@ describe('KeySyncService', () => {
       markExpired: jest.fn((ids: string[]) => Promise.resolve(ids)),
       findLiveIds: jest.fn().mockResolvedValue([]),
       findDeadIds: jest.fn().mockResolvedValue([]),
+      findKnownIds: jest.fn().mockResolvedValue([]),
     };
     servers = {
       findEnabled: jest.fn().mockResolvedValue([server('nl')]),
-      findAll: jest.fn().mockResolvedValue([server('nl'), server('off')]),
+      findAll: jest.fn().mockResolvedValue([server('nl'), server('off', false)]),
     };
     xray = {
       listClients: jest.fn().mockResolvedValue([]),
@@ -46,7 +48,7 @@ describe('KeySyncService', () => {
       await expect(service.expireKeys()).resolves.toBe(2);
       expect(keys.markExpired).toHaveBeenCalledWith([A, B]);
       expect(xray.removeClients).toHaveBeenCalledTimes(2);
-      expect(xray.removeClients).toHaveBeenCalledWith(server('off'), [A, B]);
+      expect(xray.removeClients).toHaveBeenCalledWith(server('off', false), [A, B]);
     });
 
     it('keeps the keys expired when a node is down', async () => {
@@ -72,6 +74,10 @@ describe('KeySyncService', () => {
   });
 
   describe('syncAll', () => {
+    beforeEach(() => {
+      servers.findAll.mockResolvedValue([server('nl')]);
+    });
+
     it('adds missing live keys and removes dead ones, leaving unknown clients alone', async () => {
       // On node: A (live), C (dead in DB), D (unknown to DB). Live: A, B.
       xray.listClients.mockResolvedValue([A, C, D]);
@@ -98,7 +104,7 @@ describe('KeySyncService', () => {
     });
 
     it('reports an unreachable server without failing the others', async () => {
-      servers.findEnabled.mockResolvedValue([server('nl'), server('de')]);
+      servers.findAll.mockResolvedValue([server('nl'), server('de')]);
       xray.listClients
         .mockRejectedValueOnce(new XrayNodeError('nl', 'unreachable', 'x'))
         .mockResolvedValueOnce([]);
@@ -107,6 +113,17 @@ describe('KeySyncService', () => {
       const reports = await service.syncAll();
       expect(reports[0]).toMatchObject({ server: 'nl', added: 0, error: expect.any(String) });
       expect(reports[1]).toEqual({ server: 'de', added: 1, removed: 0 });
+    });
+
+    it('removes all our keys from a disabled server, leaving unknown clients alone', async () => {
+      servers.findAll.mockResolvedValue([server('off', false)]);
+      xray.listClients.mockResolvedValue([A, C, D]);
+      keys.findKnownIds.mockResolvedValue([A, C]);
+
+      await expect(service.syncAll()).resolves.toEqual([{ server: 'off', added: 0, removed: 2 }]);
+      expect(keys.findKnownIds).toHaveBeenCalledWith([A, C, D]);
+      expect(xray.removeClients).toHaveBeenCalledWith(server('off', false), [A, C]);
+      expect(xray.addClients).not.toHaveBeenCalled();
     });
 
     it('does not run twice at the same time', async () => {

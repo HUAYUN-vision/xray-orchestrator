@@ -89,6 +89,17 @@ describe('Telegram (e2e)', () => {
       // A new widget in the new language follows the switch.
       expect(widgets()[0].html).toContain('Buy a key');
     });
+
+    it('/id shows the users.id; admin commands do not exist for non-admins', async () => {
+      const user = { id: 200, language_code: 'en' };
+      await bot.handleUpdate(textUpdate('/id', user, 4));
+      await bot.handleUpdate(textUpdate('/servers', user, 5));
+      await bot.handleUpdate(textUpdate('/server_add sg 10.0.0.1 secret', user, 6));
+      expect(sentTexts()).toEqual([
+        expect.stringMatching(/^Your id: <code>[0-9a-f-]{36}<\/code>$/),
+      ]);
+      expect(calls.some((c) => c.method === 'deleteMessage')).toBe(false);
+    });
   });
 
   it('subscription: 400 for a malformed key id, 404 for an unknown key', async () => {

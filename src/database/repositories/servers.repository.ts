@@ -16,6 +16,13 @@ const ALL_COLUMNS = {
   createdAt: true,
 } as const;
 
+export interface NewServer {
+  code: string;
+  host: string;
+  apiPort: number;
+  apiKey: string;
+}
+
 @Injectable()
 export class ServersRepository {
   constructor(@InjectRepository(Server) private readonly repo: Repository<Server>) {}
@@ -39,5 +46,28 @@ export class ServersRepository {
       where: { id },
       select: ALL_COLUMNS,
     });
+  }
+
+  /** Is the code or host already taken (unique columns). */
+  async existsByCodeOrHost(code: string, host: string): Promise<boolean> {
+    return this.repo.exists({ where: [{ code }, { host }] });
+  }
+
+  create(input: NewServer): Promise<ServerWithKey> {
+    return this.repo.save(this.repo.create({ ...input, enabled: true }));
+  }
+
+  /** `false` if there is no such server. */
+  async setEnabled(id: string, enabled: boolean): Promise<boolean> {
+    const result = await this.repo.update({ id }, { enabled });
+    return result.affected === 1;
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.repo.delete({ id });
+  }
+
+  countEnabled(): Promise<number> {
+    return this.repo.countBy({ enabled: true });
   }
 }

@@ -120,6 +120,11 @@ export class XrayService {
     return params;
   }
 
+  /** Drops cached params of a node (deleted or re-added server). */
+  forget(node: Pick<XrayNode, 'host'>): void {
+    this.paramsCache.delete(node.host);
+  }
+
   /** `vless://` link for a client on a node. */
   async buildVlessLink(node: XrayNode, clientId: string, label: string): Promise<string> {
     assertUuid(clientId);

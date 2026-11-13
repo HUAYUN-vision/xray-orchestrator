@@ -20,7 +20,8 @@ export interface SyncReport {
  * Keeps nodes in line with the database.
  * - expire: every minute, active keys past `expires_at` become `expired` and are removed from nodes;
  * - sync: every 10 minutes and on start, each enabled node gets missing live keys
- *   (new or returning server, failed purchase step) and loses dead ones (failed removal).
+ *   (new or returning server, failed purchase step) and loses dead ones (failed removal);
+ *   each disabled node loses all our keys (D19).
  * Clients unknown to the database are never touched.
  */
 @Injectable()
@@ -70,8 +71,10 @@ export class KeySyncService implements OnApplicationBootstrap {
     if (this.syncing) return [];
     this.syncing = true;
     try {
-      const servers = await this.servers.findEnabled();
-      const reports = await Promise.all(servers.map((s) => this.syncServer(s)));
+      const servers = await this.servers.findAll();
+      const reports = await Promise.all(
+        servers.map((s) => (s.enabled ? this.syncServer(s) : this.cleanServer(s))),
+      );
       for (const r of reports) {
         if (r.error) this.logger.warn(`Sync ${r.server} failed: ${r.error}`);
         else if (r.added || r.removed) {
@@ -100,6 +103,19 @@ export class KeySyncService implements OnApplicationBootstrap {
       const dead = await this.keys.findDeadIds([...onNode].filter((id) => !liveSet.has(id)));
       await this.removeFrom(server, dead);
       report.removed = dead.length;
+    } catch (err) {
+      report.error = String(err);
+    }
+    return report;
+  }
+
+  /** Removes all our clients (any key status) from a disabled or deleted server. */
+  async cleanServer(server: ServerWithKey): Promise<SyncReport> {
+    const report: SyncReport = { server: server.code, added: 0, removed: 0 };
+    try {
+      const ours = await this.keys.findKnownIds(await this.xray.listClients(server));
+      await this.removeFrom(server, ours);
+      report.removed = ours.length;
     } catch (err) {
       report.error = String(err);
     }

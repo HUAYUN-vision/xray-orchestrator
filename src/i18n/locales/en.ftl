@@ -55,3 +55,52 @@ w-m-err = Something went wrong, try again
 # Subscription link (a regular message: copying is blocked inside the widget)
 sub-link = Subscription link for your key. Add it to Hiddify, v2rayN, v2rayNG, Streisand or FoXray:
 sub-copy = 📋 Copy link
+
+# /id is for everyone; server admin (D19), messages in HTML
+id-yours = Your id: <code>{ $id }</code>
+command-servers = Servers (admin)
+command-server_add = Add a server (admin)
+admin-servers-title = <b>Servers</b>
+admin-servers-empty = No servers yet.
+admin-add-hint = Add: /server_add &lt;code&gt; &lt;host&gt; &lt;api_key&gt; [api_port]
+admin-add-usage =
+    Format: <code>/server_add &lt;code&gt; &lt;host&gt; &lt;api_key&gt; [api_port]</code>
+    Example: <code>/server_add nl 1.2.3.4 SECRET 440</code>
+    code — latin letters, digits and dashes (e.g. nl, de-2); api_port defaults to 440.
+    The bot deletes the message with the key.
+admin-add-invalid = Invalid parameter: <b>{ $field }</b>. Send the command again (the message with the key was deleted).
+admin-add-checking = Checking node <b>{ $code }</b>…
+admin-add-exists = A server with this code or host already exists.
+admin-add-unreachable = Node <b>{ $code }</b> does not respond, the server was not saved:
+    <code>{ $error }</code>
+admin-see-list = List: /servers
+admin-node-clients = keys on the node: { $count }
+admin-node-down = ⚠️ node unreachable
+admin-btn-refresh = 🔄 Refresh
+admin-btn-delete = 🗑 Yes, delete
+admin-btn-cancel = Cancel
+admin-delete-confirm = Delete server <b>{ $code }</b> ({ $host })? Our keys will be removed from the node, the server disappears from subscriptions.
+admin-added = ✅ Server <b>{ $code }</b> added and enabled, keys on the node: +{ $added }
+admin-added-node-down = ✅ Server <b>{ $code }</b> added, but keys could not be installed — will retry on sync:
+    <code>{ $error }</code>
+admin-enabled = ▶️ <b>{ $code }</b> enabled, keys on the node: +{ $added }
+admin-enabled-node-down = ▶️ <b>{ $code }</b> enabled, but the node is unreachable — keys will be installed on sync:
+    <code>{ $error }</code>
+admin-disabled = ⏸ <b>{ $code }</b> disabled, keys removed from the node: { $removed }
+admin-disabled-node-down = ⏸ <b>{ $code }</b> disabled, but the node is unreachable — keys will be removed on sync:
+    <code>{ $error }</code>
+admin-synced = 🔄 <b>{ $code }</b>: +{ $added } −{ $removed }
+admin-synced-node-down = 🔄 <b>{ $code }</b>: node unreachable
+    <code>{ $error }</code>
+admin-deleted = 🗑 <b>{ $code }</b> deleted, keys removed from the node: { $removed }
+admin-deleted-node-down = 🗑 <b>{ $code }</b> deleted, but the node is unreachable — our keys stay there, remove them manually:
+    <code>{ $error }</code>
+admin-none-enabled = ⚠️ No enabled servers left — key purchases are unavailable.
+admin-not-found = Server not found.
+admin-error = Something went wrong, try again.
+admin-progress-toast = ⏳ Working…
+admin-progress-list = ⏳ Refreshing the list and checking nodes…
+admin-progress-on = ⏳ Enabling <b>{ $code }</b> and installing keys on the node…
+admin-progress-off = ⏳ Disabling <b>{ $code }</b> and removing keys from the node…
+admin-progress-sync = ⏳ Syncing <b>{ $code }</b>…
+admin-progress-del = ⏳ Deleting <b>{ $code }</b> and cleaning the node…

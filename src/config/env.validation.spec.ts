@@ -19,6 +19,16 @@ describe('validateEnv', () => {
     expect(env.SWAGGER_ENABLED).toBe(true);
   });
 
+  it('parses ADMIN_USER_IDS as a uuid list', () => {
+    expect(validateEnv(base).ADMIN_USER_IDS).toEqual([]);
+    const a = '0b3f2c1e-8a7d-4c3b-9e2f-1a2b3c4d5e6f';
+    const b = '11111111-1111-4111-8111-111111111111';
+    expect(
+      validateEnv({ ...base, ADMIN_USER_IDS: ` ${a.toUpperCase()}, ${b},` }).ADMIN_USER_IDS,
+    ).toEqual([a, b]);
+    expect(() => validateEnv({ ...base, ADMIN_USER_IDS: '42' })).toThrow(/ADMIN_USER_IDS/);
+  });
+
   it('throws on invalid values', () => {
     expect(() => validateEnv({ ...base, PORT: 'abc' })).toThrow(/PORT/);
   });

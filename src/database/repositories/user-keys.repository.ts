@@ -130,6 +130,20 @@ export class UserKeysRepository {
   }
 
   /**
+   * Of the given ids, those that are our keys in any status (including deleted).
+   * Used to clean a disabled server: clients unknown to the database are not touched.
+   */
+  async findKnownIds(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.repo.find({
+      select: { id: true },
+      where: { id: In(ids) },
+      withDeleted: true,
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
    * Of the given ids, those known to be dead (expired or deleted) — safe to remove from servers.
    * Ids unknown to the database are not returned: they are not ours to delete.
    */

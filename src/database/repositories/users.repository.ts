@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import type { DataSource, Repository } from 'typeorm';
+import { type DataSource, In, type Repository } from 'typeorm';
 import { BalanceAccount, User } from '../entities';
 
 /** Profile fields taken from a Telegram update. */
@@ -16,6 +16,11 @@ export class UsersRepository {
     @InjectRepository(User) private readonly repo: Repository<User>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.repo.findBy({ id: In(ids) });
+  }
 
   findByTelegramId(telegramId: number): Promise<User | null> {
     return this.repo.findOneBy({ telegramId });

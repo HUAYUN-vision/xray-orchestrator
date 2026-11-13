@@ -14,6 +14,17 @@ export const envSchema = z
       .url({ protocol: /^https$/ })
       .transform((u) => u.replace(/\/+$/, ''))
       .optional(),
+    /** Admins: `users.id` (uuid, not Telegram id), comma-separated. Empty — no admin commands. */
+    ADMIN_USER_IDS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.uuid())),
     SWAGGER_ENABLED: z
       .enum(['true', 'false'])
       .default('false')

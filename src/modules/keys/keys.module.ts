@@ -10,6 +10,6 @@ import { KeySyncService } from './key-sync.service';
 @Module({
   imports: [DatabaseModule, XrayModule, RatesModule, SubscriptionModule],
   providers: [KeyPurchaseService, KeySyncService],
-  exports: [KeyPurchaseService],
+  exports: [KeyPurchaseService, KeySyncService],
 })
 export class KeysModule {}
