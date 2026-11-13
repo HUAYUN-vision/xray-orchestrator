@@ -7,7 +7,20 @@
     "plugins": [
       {
         "name": "@nestjs/swagger",
-        "options": { "introspectComments": true, "classValidatorShim": true }
+        "options": {
+          "introspectComments": true,
+          "classValidatorShim": true
+        }
+      }
+    ],
+    "assets": [
+      {
+        "include": "i18n/locales/**/*.ftl",
+        "watchAssets": true
+      },
+      {
+        "include": "widget/**/*.html",
+        "watchAssets": true
       }
     ]
   }

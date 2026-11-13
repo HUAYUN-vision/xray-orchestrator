@@ -1,10 +1,12 @@
-# NestJS Template
+# xray-orchestrator
 
-Стартовый шаблон для NestJS-сервисов.
+Telegram-бот для управления ключами Xray: создание, удаление, выдача ссылок. Построен на шаблоне [nestjs-template](https://github.com/HUAYUN-vision/nestjs-template).
 
 ## Стек
 
 - **NestJS 12** + **TypeScript 6** (strict)
+- **TypeORM** + **PostgreSQL** — модуль `src/database/`, схема только через миграции
+- **grammY** — Telegram Bot API (long polling в dev, webhook в prod)
 - **ESLint 10** (flat config, type-checked) + **Prettier**
 - **Husky** + **lint-staged** + **commitlint** (Conventional Commits)
 - **@nestjs/config** + **zod** — валидация env при старте
@@ -14,6 +16,53 @@
 - **helmet**, CORS, глобальный `ValidationPipe`, URI-версионирование (`/api/v1/...`)
 - Глобальный exception filter с единым форматом ошибок
 - **Jest** (unit + e2e), Docker (multi-stage, non-root, healthcheck), GitHub Actions CI, Dependabot
+
+## Telegram
+
+| Переменная       | Описание                                                          |
+| ---------------- | ----------------------------------------------------------------- |
+| `BOT_TOKEN`      | токен от @BotFather, обязателен                                   |
+| `BOT_MODE`       | `polling` (по умолчанию) или `webhook`                            |
+| `WEBHOOK_URL`    | https-адрес вебхука, например `https://host/api/telegram/webhook` |
+| `WEBHOOK_SECRET` | секрет для заголовка `X-Telegram-Bot-Api-Secret-Token`            |
+
+`WEBHOOK_URL` и `WEBHOOK_SECRET` обязательны при `BOT_MODE=webhook`. Вебхук принимается на `POST /{GLOBAL_PREFIX}/telegram/webhook`, в режиме polling этот путь отвечает 404.
+
+## База данных
+
+```bash
+docker compose up -d db   # Postgres на 127.0.0.1:5478
+```
+
+В `.env` нужен `DATABASE_URL=postgres://xray:xray@localhost:5478/xray`. Миграций нет: при старте TypeORM приводит схему к entity (`synchronize`). Все первичные ключи — uuid.
+
+| Скрипт              | Описание                                                                      |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `npm run test:db`   | тесты на настоящем Postgres (нужен Docker)                                    |
+| `npm run test:xray` | тесты на настоящем xray-server-instance (Docker, образ `XRAY_INSTANCE_IMAGE`) |
+
+Новая entity: класс в `src/database/entities/`, добавить в `ENTITIES` — таблица появится при следующем старте.
+
+## Подписка для VPN-клиентов
+
+`GET /{GLOBAL_PREFIX}/sub/<keyId>` отдаёт подписку для ключа по всем включённым серверам (VLESS + Reality). Формат выбирается по User-Agent: Hiddify получает один конфиг sing-box, остальные клиенты (Happ, v2rayN, v2rayNG, Streisand, V2Box, INCY) — массив Xray JSON-конфигов, по одному на сервер. В конфигах настроена маршрутизация: домены из `src/modules/subscription/domains/` (российские и китайские банки, госсервисы, маркетплейсы) и локальные сети идут напрямую, остальной трафик через VPN. Списки скопированы из `xray-server-instance/domains`, обновлять их нужно в обоих местах.
+
+Для ссылок нужен `PUBLIC_URL` (публичный https-адрес сервиса). Заголовок `Subscription-Userinfo` сообщает клиенту трафик и дату окончания ключа. Недоступный сервер в подписку не попадает.
+
+## Админка серверов
+
+Админы задаются в `ADMIN_USER_IDS`: это `users.id` из БД (uuid, не Telegram id), через запятую. Свой id показывает команда `/id`. Для остальных пользователей админских команд не существует.
+
+- `/servers` — список серверов: включён ли, сколько ключей на ноде. Кнопки: включить/выключить, синхронизировать, удалить (с подтверждением).
+- `/server_add <code> <host> <api_key> [api_port]` — добавить сервер. Бот сразу удаляет сообщение с ключом, проверяет ноду (недоступную не сохраняет) и ставит на неё все действующие ключи.
+
+Выключенный сервер пропадает из подписки и покупок, наши ключи с его ноды удаляются. При включении ключи сразу ставятся обратно. Клиенты увидят изменения после обновления подписки (раз в час).
+
+## Локализация
+
+Переводы лежат в `src/i18n/locales/<код>.ftl` в формате [Fluent](https://projectfluent.org/). Язык пользователя определяется так: сохранённый выбор (`/language <код>`), затем `language_code` из Telegram, затем `ru`. Чтобы добавить язык, создайте файл `.ftl` с тем же набором ключей и добавьте код в `SUPPORTED_LOCALES` (`src/i18n/i18n.constants.ts`). Тест проверяет, что ключи во всех локалях совпадают.
+
+Выбранный язык хранится в БД (`users.language`).
 
 ## Требования
 
@@ -52,6 +101,9 @@ src/
 ├── common/filters/     # глобальные фильтры, guards, interceptors
 ├── config/             # схема env (zod) и типизированный AppConfigService
 ├── modules/health/     # health-check
+├── database/           # TypeORM: entities, repositories (единственное место работы с БД)
+├── i18n/               # переводы (Fluent): I18nService, locales/*.ftl
+├── telegram/           # бот: lifecycle, webhook, хендлеры, обёртки Bot API 10.4 (виджеты)
 ├── app.module.ts
 ├── setup-app.ts        # общая настройка приложения (main + e2e)
 └── main.ts
