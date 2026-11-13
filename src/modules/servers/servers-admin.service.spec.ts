@@ -4,9 +4,10 @@ import { XrayNodeError } from '../xray/xray-node.client';
 import { ServersAdminError, ServersAdminService } from './servers-admin.service';
 
 const ID = '0b3f2c1e-8a7d-4c3b-9e2f-1a2b3c4d5e6f';
+const CREATED_AT = new Date('2026-01-01T00:00:00Z');
 const input = { code: 'sg', host: '10.0.0.1', apiPort: 440, apiKey: 'secret' };
 const server = (enabled = true) =>
-  ({ ...input, id: ID, enabled, createdAt: new Date() }) as ServerWithKey;
+  ({ ...input, id: ID, enabled, createdAt: CREATED_AT }) as ServerWithKey;
 const ok = (added = 0, removed = 0) => ({ server: 'sg', added, removed });
 
 describe('ServersAdminService', () => {
