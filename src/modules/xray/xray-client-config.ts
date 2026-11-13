@@ -1,7 +1,7 @@
 import type { RealityParams } from './xray.service';
 
 /** Private and link-local ranges: never send them through the VPN. */
-const PRIVATE_CIDRS = [
+export const PRIVATE_CIDRS = [
   '10.0.0.0/8',
   '172.16.0.0/12',
   '192.168.0.0/16',
@@ -26,7 +26,8 @@ export interface ClientConfigInput {
 /**
  * Full Xray client config for one server: VLESS + Reality outbound and routing
  * that sends `directDomains` and private networks direct, everything else through the proxy.
- * Understood by Happ, v2rayN, Streisand, V2Box, Hiddify, INCY (xray-json subscriptions).
+ * Understood by Xray-based apps: Happ, v2rayN, v2rayNG, Streisand, V2Box, INCY (xray-json subscriptions).
+ * Not by Hiddify: it runs sing-box, see singbox-client-config.ts.
  */
 export function buildXrayClientConfig(input: ClientConfigInput): Record<string, unknown> {
   const { clientId, host, params, label, directDomains } = input;

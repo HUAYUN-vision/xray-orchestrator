@@ -2,20 +2,32 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
 import { ServersRepository } from '../../database/repositories/servers.repository';
 import { UserKeysRepository } from '../../database/repositories/user-keys.repository';
+import { buildSingboxClientConfig, type SingboxServer } from '../xray/singbox-client-config';
 import { buildXrayClientConfig } from '../xray/xray-client-config';
 import { XrayService } from '../xray/xray.service';
 import { DIRECT_DOMAINS } from './domains';
 
+/**
+ * `xray`: array of Xray configs, one per server (Happ, v2rayN, v2rayNG, Streisand, V2Box).
+ * `singbox`: one sing-box config with all servers (Hiddify).
+ */
+export type SubscriptionFormat = 'xray' | 'singbox';
+
+/** Format by the client's User-Agent; anything unknown gets xray-json. */
+export function detectFormat(userAgent: string | undefined): SubscriptionFormat {
+  return /hiddify/i.test(userAgent ?? '') ? 'singbox' : 'xray';
+}
+
 export interface Subscription {
-  /** One Xray config per reachable server. */
-  configs: Record<string, unknown>[];
+  /** Response body: `Record[]` for xray, `Record` for singbox. */
+  body: Record<string, unknown>[] | Record<string, unknown>;
   /** `subscription-userinfo` header value: traffic and expiry for client apps. */
   userInfo: string;
 }
 
 /**
- * Builds the subscription for a key: a full Xray config per server with
- * direct routing for DIRECT_DOMAINS. Served at GET /{prefix}/sub/{keyId}.
+ * Builds the subscription for a key with direct routing for DIRECT_DOMAINS:
+ * xray-json or sing-box depending on the client. Served at GET /{prefix}/sub/{keyId}.
  */
 @Injectable()
 export class SubscriptionService {
@@ -36,29 +48,23 @@ export class SubscriptionService {
   }
 
   /** `null` if the key does not exist, expired or was deleted. */
-  async build(keyId: string): Promise<Subscription | null> {
+  async build(keyId: string, format: SubscriptionFormat = 'xray'): Promise<Subscription | null> {
     const key = await this.keys.findActive(keyId);
     if (!key) return null;
 
-    const servers = await this.servers.findEnabled();
-    const results = await Promise.allSettled(
-      servers.map(async (server) => {
-        const params = await this.xray.getRealityParams(server);
-        return buildXrayClientConfig({
-          clientId: key.id,
-          host: server.host,
-          params,
-          label: serverLabel(server.code),
-          directDomains: DIRECT_DOMAINS,
-        });
-      }),
-    );
-
-    const configs: Record<string, unknown>[] = [];
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') configs.push(r.value);
-      else this.logger.warn(`Skipping ${servers[i].code} in subscription: ${String(r.reason)}`);
-    });
+    const servers = await this.reachableServers();
+    const body =
+      format === 'singbox'
+        ? buildSingboxClientConfig({ clientId: key.id, servers, directDomains: DIRECT_DOMAINS })
+        : servers.map((s) =>
+            buildXrayClientConfig({
+              clientId: key.id,
+              host: s.host,
+              params: s.params,
+              label: s.label,
+              directDomains: DIRECT_DOMAINS,
+            }),
+          );
 
     const userInfo = [
       'upload=0',
@@ -67,7 +73,23 @@ export class SubscriptionService {
       `expire=${Math.floor(key.expiresAt.getTime() / 1000)}`,
     ].join('; ');
 
-    return { configs, userInfo };
+    return { body, userInfo };
+  }
+
+  /** Enabled servers with Reality params; unreachable ones are skipped. */
+  private async reachableServers(): Promise<SingboxServer[]> {
+    const servers = await this.servers.findEnabled();
+    const results = await Promise.allSettled(servers.map((s) => this.xray.getRealityParams(s)));
+    const out: SingboxServer[] = [];
+    results.forEach((r, i) => {
+      const server = servers[i];
+      if (r.status === 'fulfilled') {
+        out.push({ label: serverLabel(server.code), host: server.host, params: r.value });
+      } else {
+        this.logger.warn(`Skipping ${server.code} in subscription: ${String(r.reason)}`);
+      }
+    });
+    return out;
   }
 }
 
