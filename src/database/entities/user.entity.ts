@@ -10,8 +10,8 @@ import { bigintToNumber } from '../transformers';
 /** Telegram user of the bot. */
 @Entity({ name: 'users' })
 export class User {
-  @PrimaryGeneratedColumn('identity', { generatedIdentity: 'ALWAYS' })
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ name: 'telegram_id', type: 'bigint', unique: true, transformer: bigintToNumber })
   telegramId: number;

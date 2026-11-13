@@ -17,6 +17,10 @@
       {
         "include": "i18n/locales/**/*.ftl",
         "watchAssets": true
+      },
+      {
+        "include": "widget/**/*.html",
+        "watchAssets": true
       }
     ]
   }

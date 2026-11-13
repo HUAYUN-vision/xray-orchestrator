@@ -25,8 +25,8 @@ export class UserKey {
   @PrimaryColumn({ type: 'uuid' })
   id: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  userId: number;
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId: string;
 
   @Column({ name: 'tariff_id', type: 'uuid' })
   tariffId: string;

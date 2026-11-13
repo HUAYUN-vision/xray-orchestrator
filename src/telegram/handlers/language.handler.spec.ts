@@ -3,15 +3,24 @@ import type { UsersRepository } from '../../database/repositories/users.reposito
 import { InMemoryUsersRepository } from '../../../test/helpers/in-memory-users.repository';
 import { makeCtx } from '../../../test/helpers/make-ctx';
 import { LanguageHandler } from './language.handler';
+import type { WidgetHandler } from './widget.handler';
 
 describe('LanguageHandler', () => {
   const i18n = new I18nService();
   let users: InMemoryUsersRepository;
   let handler: LanguageHandler;
+  let sendHome: jest.Mock;
 
   beforeEach(() => {
     users = new InMemoryUsersRepository();
-    handler = new LanguageHandler(i18n, users as unknown as UsersRepository);
+    sendHome = jest.fn().mockResolvedValue(undefined);
+    handler = new LanguageHandler(
+      i18n,
+      users as unknown as UsersRepository,
+      {
+        sendHome,
+      } as unknown as WidgetHandler,
+    );
   });
 
   async function ctxFor(match: string) {
@@ -36,6 +45,7 @@ describe('LanguageHandler', () => {
     expect((await users.findByTelegramId(5))?.language).toBe('en');
     expect(ctx.locale).toBe('en');
     expect(reply).toHaveBeenCalledWith('Language switched to English.');
+    expect(sendHome).toHaveBeenCalledWith(ctx);
   });
 
   it('rejects an unknown language and keeps the current one', async () => {

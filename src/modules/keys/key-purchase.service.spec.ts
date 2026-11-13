@@ -4,9 +4,11 @@ import type { Tariff, Transaction, UserKey } from '../../database/entities';
 import { Currency } from '../../database/enums';
 import type { ServerWithKey } from '../../database/repositories/servers.repository';
 import type { NewUserKey } from '../../database/repositories/user-keys.repository';
+import { RatesUnavailableError } from '../rates/exchange-rates.service';
 import { XrayNodeError } from '../xray/xray-node.client';
 import { KeyPurchaseError, KeyPurchaseService } from './key-purchase.service';
 
+const U = '00000000-0000-4000-8000-000000000001';
 const tariff = {
   id: 't1',
   durationDays: 30,
@@ -16,7 +18,7 @@ const tariff = {
   active: true,
 } as Tariff;
 const server = (code: string) => ({ id: code, code, host: `${code}.example.com` }) as ServerWithKey;
-const paymentTx = { id: 'tx1', userId: 1, amount: '199.00000000', currency: Currency.RUB };
+const paymentTx = { id: 'tx1', userId: U, amount: '199.00000000', currency: Currency.RUB };
 
 describe('KeyPurchaseService', () => {
   let deps: {
@@ -65,14 +67,19 @@ describe('KeyPurchaseService', () => {
   });
 
   const buy = (currency = Currency.RUB) =>
-    service.purchase({ userId: 1, tariffId: 't1', currency, expectedSeqno: 5 });
+    service.purchase({ userId: U, tariffId: 't1', currency, expectedSeqno: 5 });
 
   it('charges the tariff price, creates the key on every server and returns the subscription', async () => {
     const res = await buy();
 
     const [key, payment] = deps.keys.createPaid.mock.calls[0] as [NewUserKey, unknown];
-    expect(payment).toEqual({ currency: Currency.RUB, amount: '199.00000000', expectedSeqno: 5 });
-    expect(key.userId).toBe(1);
+    expect(payment).toEqual({
+      currency: Currency.RUB,
+      amount: '199.00',
+      expectedSeqno: 5,
+      price: undefined,
+    });
+    expect(key.userId).toBe(U);
     expect(key.expiresAt.getTime() - Date.now()).toBeGreaterThan(29.9 * 86_400_000);
     expect(deps.xray.addClient).toHaveBeenCalledTimes(2);
     expect(deps.rates.convert).not.toHaveBeenCalled();
@@ -90,10 +97,37 @@ describe('KeyPurchaseService', () => {
     );
     expect(deps.keys.createPaid.mock.calls[0][1]).toEqual({
       currency: Currency.CNY,
-      amount: '16.06043243',
+      amount: '16.07',
       expectedSeqno: 5,
       price: { amount: '199.00000000', currency: Currency.RUB, rate: '0.080705' },
     });
+  });
+
+  it('fails with price_changed if the price went above the one shown', async () => {
+    await expect(
+      service.purchase({
+        userId: U,
+        tariffId: 't1',
+        currency: Currency.CNY,
+        expectedAmount: '16.06',
+      }),
+    ).rejects.toMatchObject({ reason: 'price_changed' });
+    expect(deps.keys.createPaid).not.toHaveBeenCalled();
+  });
+
+  it('quote: price in every currency, skipping those without a rate', async () => {
+    deps.rates.convert
+      .mockResolvedValueOnce({ amount: '16.06043243', rate: '0.08', ratesDate: 'd' })
+      .mockRejectedValueOnce(new RatesUnavailableError('down'));
+    await expect(service.quote(tariff)).resolves.toEqual([
+      { currency: Currency.RUB, amount: '199.00' },
+      { currency: Currency.CNY, amount: '16.07', rate: '0.08' },
+    ]);
+  });
+
+  it('quote propagates unexpected errors', async () => {
+    deps.rates.convert.mockRejectedValue(new Error('bug'));
+    await expect(service.quote(tariff)).rejects.toThrow('bug');
   });
 
   it('does not charge for a free tariff', async () => {

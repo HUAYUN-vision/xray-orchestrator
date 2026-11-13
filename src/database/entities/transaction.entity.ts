@@ -40,7 +40,7 @@ export interface ExchangeMeta {
 
 export interface AdjustmentMeta {
   /** Admin who made the change. */
-  byUserId?: number;
+  byUserId?: string;
   comment?: string;
 }
 
@@ -55,8 +55,8 @@ export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id', type: 'int' })
-  userId: number;
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId: string;
 
   @Column({ ...MONEY })
   amount: string;

@@ -34,17 +34,14 @@ Telegram-бот для управления ключами Xray: создани�
 docker compose up -d db   # Postgres на 127.0.0.1:5478
 ```
 
-В `.env` нужен `DATABASE_URL=postgres://xray:xray@localhost:5478/xray`. Миграции применяются при старте приложения (`DB_MIGRATIONS_RUN=true`).
+В `.env` нужен `DATABASE_URL=postgres://xray:xray@localhost:5478/xray`. Миграций нет: при старте TypeORM приводит схему к entity (`synchronize`). Все первичные ключи — uuid.
 
-| Скрипт                                                         | Описание                                                                      |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `npm run migration:generate -- src/database/migrations/<Name>` | миграция по изменениям entity                                                 |
-| `npm run migration:run` / `migration:revert`                   | применить / откатить последнюю                                                |
-| `npm run migration:check`                                      | проверить, что миграции совпадают с entity                                    |
-| `npm run test:db`                                              | тесты на настоящем Postgres (нужен Docker)                                    |
-| `npm run test:xray`                                            | тесты на настоящем xray-server-instance (Docker, образ `XRAY_INSTANCE_IMAGE`) |
+| Скрипт              | Описание                                                                      |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `npm run test:db`   | тесты на настоящем Postgres (нужен Docker)                                    |
+| `npm run test:xray` | тесты на настоящем xray-server-instance (Docker, образ `XRAY_INSTANCE_IMAGE`) |
 
-Новая entity: класс в `src/database/entities/`, добавить в `ENTITIES`, сгенерировать миграцию.
+Новая entity: класс в `src/database/entities/`, добавить в `ENTITIES` — таблица появится при следующем старте.
 
 ## Подписка для VPN-клиентов
 
@@ -95,7 +92,7 @@ src/
 ├── common/filters/     # глобальные фильтры, guards, interceptors
 ├── config/             # схема env (zod) и типизированный AppConfigService
 ├── modules/health/     # health-check
-├── database/           # TypeORM: entities, migrations, repositories (единственное место работы с БД)
+├── database/           # TypeORM: entities, repositories (единственное место работы с БД)
 ├── i18n/               # переводы (Fluent): I18nService, locales/*.ftl
 ├── telegram/           # бот: lifecycle, webhook, хендлеры, обёртки Bot API 10.4 (виджеты)
 ├── app.module.ts

@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+      }
+      h4 {
+        margin: 4px 0 8px;
+      }
+      p {
+        margin: 6px 0;
+      }
+      button {
+        width: 100%;
+        margin-top: 6px;
+      }
+      .bal {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+      .mut {
+        color: var(--tg-theme-hint-color);
+      }
+      .msg {
+        padding: 8px;
+        border-radius: 8px;
+        background: var(--tg-theme-secondary-bg-color);
+        margin-bottom: 8px;
+      }
+      .err {
+        color: var(--tg-theme-destructive-text-color);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="a"></div>
+    <script>
+      // State renderer: all logic lives in the bot. Taps send short commands via request(),
+      // the bot answers "ok" and then replaces chatData (screen state).
+      var W = window.TelegramWidget,
+        L = __I18N__,
+        A = document.getElementById('a');
+      var C = { rub: '₽', cny: '¥', usdt: 'USDT' };
+      var S = null,
+        busy = false,
+        T = 0,
+        note = '',
+        noteErr = false;
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return '&#' + c.charCodeAt(0) + ';';
+        });
+      }
+      function money(v, c) {
+        return esc(v) + ' ' + C[c];
+      }
+      function p2(n) {
+        return (n < 10 ? '0' : '') + n;
+      }
+      function date(t) {
+        var d = new Date(t * 1000);
+        return p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();
+      }
+      function btn(text, cmd, off) {
+        return (
+          '<button onclick="go(\'' +
+          cmd +
+          '\')"' +
+          (off || busy ? ' disabled' : '') +
+          '>' +
+          esc(text) +
+          '</button>'
+        );
+      }
+      function bal(b) {
+        return (
+          '<div class="bal">' +
+          ['rub', 'cny', 'usdt']
+            .map(function (c) {
+              return '<b>' + money(b[c], c) + '</b>';
+            })
+            .join('') +
+          '</div>'
+        );
+      }
+      function till(active, exp) {
+        return active ? L.until + ' ' + date(exp) : L.expired;
+      }
+      function go(cmd) {
+        if (busy) return;
+        busy = true;
+        note = L.loading;
+        noteErr = false;
+        draw();
+        clearTimeout(T);
+        T = setTimeout(function () {
+          done(L['m-err']);
+        }, 20000);
+        W.request(cmd).then(
+          function (r) {
+            if (r.result !== 'ok') done(L['m-err']);
+          },
+          function (e) {
+            done(L[e.code === 'RATE_LIMITED' ? 'm-slow' : 'm-err']);
+          },
+        );
+      }
+      function done(n) {
+        busy = false;
+        clearTimeout(T);
+        note = n;
+        noteErr = true;
+        draw();
+      }
+      function copy() {
+        if (!S || !S.u) return;
+        W.copyText(S.u);
+        note = L.copied;
+        noteErr = false;
+        draw();
+      }
+      function draw() {
+        var s = S || {},
+          h = '';
+        var msg = note || (s.m ? L['m-' + s.m] : '');
+        var bad = note ? noteErr : s.m && s.m !== 'ok';
+        if (msg) h += '<div class="msg' + (bad ? ' err' : '') + '">' + esc(msg) + '</div>';
+        if (s.s === 'h') {
+          h += '<h4>' + L.balance + '</h4>' + bal(s.b) + '<h4>' + L.keys + '</h4>';
+          h += s.k.length
+            ? s.k
+                .map(function (k) {
+                  return btn('🔑 ' + k[0].slice(0, 8) + ' · ' + till(k[2], k[1]), 'k:' + k[0]);
+                })
+                .join('')
+            : '<p class="mut">' + L['no-keys'] + '</p>';
+          h += btn(L.buy, 'b');
+        } else if (s.s === 'b') {
+          h += '<h4>' + L.tariffs + '</h4>';
+          h += s.t.length
+            ? s.t
+                .map(function (t) {
+                  return btn(t[1] + ' ' + L.days + ' — ' + t[2] + ' ' + C[t[3]], 't:' + t[0]);
+                })
+                .join('')
+            : '<p class="mut">' + L['no-tariffs'] + '</p>';
+          h += btn(L.back, 'h');
+        } else if (s.s === 't') {
+          h += '<h4>' + L['pay-title'] + ': ' + s.d + ' ' + L.days + '</h4>' + bal(s.b);
+          h += s.o
+            .map(function (o) {
+              return btn(
+                L.pay + ' ' + o[1] + ' ' + C[o[0]],
+                'p:' + s.i + ':' + o[0] + ':' + s.q + ':' + o[1],
+                +s.b[o[0]] < +o[1],
+              );
+            })
+            .join('');
+          h += btn(L.back, 'b');
+        } else if (s.s === 'k') {
+          h += '<h4>🔑 ' + s.i.slice(0, 8) + '</h4><p>' + till(s.a, s.e) + '</p>';
+          if (s.u)
+            h +=
+              '<p class="mut">' + L.howto + '</p><button onclick="copy()">' + L.copy + '</button>';
+          h += btn(L.back, 'h');
+        } else {
+          h += '<p class="mut">' + L.loading + '</p>' + btn(L.refresh, 'h');
+        }
+        A.innerHTML = h;
+      }
+      function load() {
+        try {
+          S = JSON.parse(W.chatData);
+        } catch (e) {
+          S = null;
+        }
+        busy = false;
+        clearTimeout(T);
+        note = '';
+        draw();
+      }
+      W.onEvent('chatDataChanged', load);
+      load();
+      W.ready();
+    </script>
+  </body>
+</html>

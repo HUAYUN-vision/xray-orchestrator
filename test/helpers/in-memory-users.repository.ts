@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { User } from '../../src/database/entities';
 import type {
   TelegramProfile,
@@ -9,7 +10,6 @@ type PublicApi<T> = { [K in keyof T]: T[K] };
 /** In-memory UsersRepository for unit and e2e tests (no database). */
 export class InMemoryUsersRepository implements PublicApi<UsersRepository> {
   readonly users = new Map<number, User>();
-  private nextId = 1;
 
   findByTelegramId(telegramId: number): Promise<User | null> {
     return Promise.resolve(this.users.get(telegramId) ?? null);
@@ -20,7 +20,7 @@ export class InMemoryUsersRepository implements PublicApi<UsersRepository> {
     const existing = this.users.get(profile.telegramId);
     const user: User = existing
       ? { ...existing, ...profile, updatedAt: now }
-      : { id: this.nextId++, language: null, createdAt: now, updatedAt: now, ...profile };
+      : { id: randomUUID(), language: null, createdAt: now, updatedAt: now, ...profile };
     this.users.set(profile.telegramId, user);
     return Promise.resolve(user);
   }

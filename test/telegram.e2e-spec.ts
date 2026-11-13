@@ -46,14 +46,36 @@ describe('Telegram (e2e)', () => {
       calls.length = 0;
     });
 
-    it('answers /start in the default language', async () => {
+    const widgets = () => calls.filter((c) => c.method === 'sendWidget').map((c) => c.payload);
+
+    it('/start sends the widget in the default language', async () => {
       await bot.handleUpdate(textUpdate('/start'));
-      expect(sentTexts()).toEqual([expect.stringContaining('Привет')]);
+      const [w] = widgets();
+      expect(w).toMatchObject({ chat_id: 42, allow_queries: true });
+      expect(w.caption).toContain('Привет');
+      expect(w.html).toContain('Купить ключ');
+      expect(JSON.parse(w.chat_data as string)).toMatchObject({ s: 'h', k: [] });
     });
 
     it('uses Telegram language_code when nothing is saved', async () => {
       await bot.handleUpdate(textUpdate('/start', { id: 7, language_code: 'en-US' }));
-      expect(sentTexts()).toEqual([expect.stringContaining('Hi')]);
+      expect(widgets()[0].html).toContain('Buy a key');
+    });
+
+    it('a widget query is answered and the widget state is replaced', async () => {
+      await bot.handleUpdate({
+        update_id: 50,
+        widget_query: {
+          id: 'wq1',
+          from: { id: 42, is_bot: false, first_name: 'U' },
+          data: 'b',
+          chat: { id: 42, type: 'private', first_name: 'U' },
+          message_id: 9,
+        },
+      } as never);
+      expect(calls.map((c) => c.method)).toEqual(['answerWidgetQuery', 'editMessageWidgetData']);
+      expect(calls[0].payload).toMatchObject({ widget_query_id: 'wq1', data: 'ok' });
+      expect(JSON.parse(calls[1].payload.chat_data as string)).toMatchObject({ s: 'b', t: [] });
     });
 
     it('/language <code> switches the language for later messages', async () => {
@@ -64,6 +86,8 @@ describe('Telegram (e2e)', () => {
         expect.stringContaining('Language switched to English'),
         expect.stringContaining('Commands:'),
       ]);
+      // A new widget in the new language follows the switch.
+      expect(widgets()[0].html).toContain('Buy a key');
     });
   });
 

@@ -3,6 +3,7 @@ import type { NextFunction } from 'grammy';
 import { UsersRepository } from '../../database/repositories/users.repository';
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
+import { getSender } from '../widget-query';
 
 /** Loads (or creates) the sender as `ctx.user`. Must run before any middleware that needs the user. */
 @Injectable()
@@ -14,7 +15,7 @@ export class UserMiddleware implements BotHandler {
   }
 
   async handle(ctx: BotContext, next: NextFunction): Promise<void> {
-    const from = ctx.from;
+    const from = getSender(ctx);
     if (from && !from.is_bot) {
       ctx.user = await this.users.syncFromTelegram({
         telegramId: from.id,

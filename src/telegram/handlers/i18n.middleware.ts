@@ -3,6 +3,7 @@ import type { NextFunction } from 'grammy';
 import { I18nService } from '../../i18n/i18n.service';
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
+import { getSender } from '../widget-query';
 
 /**
  * Sets `ctx.locale` and `ctx.t` for every update:
@@ -20,7 +21,9 @@ export class I18nMiddleware implements BotHandler {
   async handle(ctx: BotContext, next: NextFunction): Promise<void> {
     const saved = ctx.user?.language;
     ctx.locale =
-      saved && this.i18n.isSupported(saved) ? saved : this.i18n.resolve(ctx.from?.language_code);
+      saved && this.i18n.isSupported(saved)
+        ? saved
+        : this.i18n.resolve(getSender(ctx)?.language_code);
     ctx.t = (key, args) => this.i18n.t(ctx.locale, key, args);
     await next();
   }

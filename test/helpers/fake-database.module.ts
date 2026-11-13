@@ -20,7 +20,14 @@ const empty = () => Promise.resolve([]);
     { provide: ServersRepository, useValue: { findEnabled: empty, findAll: empty } },
     {
       provide: UserKeysRepository,
-      useValue: { findActive: none, findExpired: empty, findLiveIds: empty, findDeadIds: empty },
+      useValue: {
+        findActive: none,
+        findOwned: none,
+        findByUser: empty,
+        findExpired: empty,
+        findLiveIds: empty,
+        findDeadIds: empty,
+      },
     },
     {
       provide: DatabaseHealthIndicator,

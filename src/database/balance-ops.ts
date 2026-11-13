@@ -26,7 +26,7 @@ export class StaleBalanceError extends Error {
 }
 
 export interface BalanceMovement {
-  userId: number;
+  userId: string;
   currency: Currency;
   /** Positive decimal string. */
   amount: string;
@@ -55,7 +55,7 @@ function assertMovement({ amount, currency }: BalanceMovement): void {
  * Locks the account row until the end of the transaction.
  * Every balance change goes through here, so concurrent operations of one user run one by one.
  */
-async function lockAccount(manager: EntityManager, userId: number): Promise<BalanceAccount> {
+async function lockAccount(manager: EntityManager, userId: string): Promise<BalanceAccount> {
   return manager.findOneOrFail(BalanceAccount, {
     where: { userId },
     lock: { mode: 'pessimistic_write' },

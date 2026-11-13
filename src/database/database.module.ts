@@ -20,7 +20,7 @@ const REPOSITORIES = [
 ];
 
 /**
- * The only place that knows about TypeORM: connection, entities, migrations, repositories.
+ * The only place that knows about TypeORM: connection, entities (schema is synchronized from them), repositories.
  * Other modules use the exported repositories.
  */
 @Module({
@@ -29,8 +29,8 @@ const REPOSITORIES = [
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) =>
         buildDataSourceOptions(config.get('DATABASE_URL'), {
-          migrationsRun: config.get('DB_MIGRATIONS_RUN'),
-          logging: config.get('DB_LOGGING') ? 'all' : ['error', 'warn', 'migration'],
+          // `schema` logs the DDL that synchronize runs.
+          logging: config.get('DB_LOGGING') ? 'all' : ['error', 'warn', 'schema'],
         }),
     }),
     TypeOrmModule.forFeature(ENTITIES),

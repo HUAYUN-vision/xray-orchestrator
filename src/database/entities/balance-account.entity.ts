@@ -17,8 +17,8 @@ import { User } from './user.entity';
 @Entity({ name: 'balance_accounts' })
 @Check('chk_balance_accounts_non_negative', 'rub >= 0 AND cny >= 0 AND usdt >= 0')
 export class BalanceAccount {
-  @PrimaryColumn({ name: 'user_id', type: 'int' })
-  userId: number;
+  @PrimaryColumn({ name: 'user_id', type: 'uuid' })
+  userId: string;
 
   @Column({ ...MONEY, default: 0 })
   rub: string;

@@ -7,7 +7,7 @@ import type { BotHandler } from '../bot-handler.interface';
 /** Commands shown in the Telegram menu; descriptions come from `command-<name>` keys. */
 export const MENU_COMMANDS = ['start', 'help', 'language'] as const;
 
-/** Basic commands: /start and /help, plus the localized command menu. */
+/** /help and the localized command menu; /start is in WidgetHandler. */
 @Injectable()
 export class CommandsHandler implements BotHandler {
   private readonly logger = new Logger(CommandsHandler.name);
@@ -15,7 +15,6 @@ export class CommandsHandler implements BotHandler {
   constructor(private readonly i18n: I18nService) {}
 
   register(bot: AppBot): void {
-    bot.command('start', (ctx) => this.start(ctx));
     bot.command('help', (ctx) => this.help(ctx));
   }
 
@@ -34,10 +33,6 @@ export class CommandsHandler implements BotHandler {
       // Menu is cosmetic: don't block startup on it.
       this.logger.warn(`Failed to set bot commands: ${String(err)}`);
     }
-  }
-
-  async start(ctx: BotContext): Promise<void> {
-    await ctx.reply(ctx.t('start', { name: ctx.from?.first_name ?? '' }));
   }
 
   async help(ctx: BotContext): Promise<void> {

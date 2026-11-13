@@ -14,7 +14,7 @@ import { BalanceAccount, type Transaction } from '../entities';
 export class BalanceRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  findByUserId(userId: number): Promise<BalanceAccount | null> {
+  findByUserId(userId: string): Promise<BalanceAccount | null> {
     return this.dataSource.getRepository(BalanceAccount).findOneBy({ userId });
   }
 

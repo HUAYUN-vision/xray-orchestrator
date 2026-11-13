@@ -31,7 +31,7 @@ describe('validateEnv', () => {
   it('requires a postgres DATABASE_URL', () => {
     expect(() => validateEnv({ BOT_TOKEN })).toThrow(/DATABASE_URL/);
     expect(() => validateEnv({ ...base, DATABASE_URL: 'mysql://x@y/z' })).toThrow(/DATABASE_URL/);
-    expect(validateEnv(base).DB_MIGRATIONS_RUN).toBe(true);
+    expect(validateEnv(base).DB_LOGGING).toBe(false);
   });
 
   it('requires WEBHOOK_URL and WEBHOOK_SECRET in webhook mode', () => {

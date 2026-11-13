@@ -21,7 +21,7 @@ import { BalanceRepository } from '../../src/database/repositories/balance.repos
 import { UserKeysRepository } from '../../src/database/repositories/user-keys.repository';
 import { UsersRepository } from '../../src/database/repositories/users.repository';
 
-/** Runs against a real Postgres in Docker: migrations, schema sync, constraints and repository queries. */
+/** Runs against a real Postgres in Docker: schema sync, constraints and repository queries. */
 describe('Database (db)', () => {
   let container: StartedPostgreSqlContainer;
   let dataSource: DataSource;
@@ -32,7 +32,6 @@ describe('Database (db)', () => {
     dataSource = await new DataSource(
       buildDataSourceOptions(container.getConnectionUri()),
     ).initialize();
-    await dataSource.runMigrations();
     users = new UsersRepository(dataSource.getRepository(User), dataSource);
   });
 
@@ -50,15 +49,26 @@ describe('Database (db)', () => {
   const newUser = (telegramId = 1) =>
     users.syncFromTelegram({ telegramId, username: null, firstName: 'U' });
 
-  it('migrations match the entities', async () => {
+  it('schema is created from the entities; a restart changes nothing', async () => {
     const sql = await dataSource.driver.createSchemaBuilder().log();
     expect(sql.upQueries.map((q) => q.query)).toEqual([]);
+    const second = await new DataSource(
+      buildDataSourceOptions(container.getConnectionUri()),
+    ).initialize();
+    await second.destroy();
   });
 
-  it('all migrations can be reverted and applied again', async () => {
-    const count = dataSource.migrations.length;
-    for (let i = 0; i < count; i++) await dataSource.undoLastMigration();
-    await expect(dataSource.runMigrations()).resolves.toHaveLength(count);
+  it('all primary keys are uuid', async () => {
+    const rows: { table_name: string; data_type: string }[] = await dataSource.query(`
+      SELECT c.table_name, c.data_type
+      FROM information_schema.table_constraints t
+      JOIN information_schema.key_column_usage k
+        ON k.constraint_name = t.constraint_name AND k.table_name = t.table_name
+      JOIN information_schema.columns c
+        ON c.table_name = k.table_name AND c.column_name = k.column_name
+      WHERE t.constraint_type = 'PRIMARY KEY' AND t.table_schema = 'public'`);
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    expect(rows.filter((r) => r.data_type !== 'uuid')).toEqual([]);
   });
 
   describe('UsersRepository', () => {
@@ -68,7 +78,11 @@ describe('Database (db)', () => {
         username: 'ann',
         firstName: 'Ann',
       });
-      expect(user).toMatchObject({ id: 1, telegramId: 7_000_000_001, language: null });
+      expect(user).toMatchObject({
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        telegramId: 7_000_000_001,
+        language: null,
+      });
       expect(typeof user.telegramId).toBe('number');
 
       const balance = await dataSource.getRepository(BalanceAccount).findOneByOrFail({
@@ -107,9 +121,9 @@ describe('Database (db)', () => {
       balance = new BalanceRepository(dataSource);
     });
 
-    const deposit = (userId: number, amount: string, currency = Currency.RUB) =>
+    const deposit = (userId: string, amount: string, currency = Currency.RUB) =>
       balance.credit({ userId, currency, amount, kind: TransactionKind.Deposit });
-    const pay = (userId: number, amount: string, expectedSeqno?: number) =>
+    const pay = (userId: string, amount: string, expectedSeqno?: number) =>
       balance.debit({
         userId,
         currency: Currency.RUB,
@@ -170,7 +184,7 @@ describe('Database (db)', () => {
   describe('UserKeysRepository', () => {
     let keys: UserKeysRepository;
     let tariffId: string;
-    let userId: number;
+    let userId: string;
     beforeEach(async () => {
       keys = new UserKeysRepository(dataSource.getRepository(UserKey), dataSource);
       userId = (await newUser()).id;

@@ -21,10 +21,6 @@ export const envSchema = z
 
     // Database
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-    DB_MIGRATIONS_RUN: z
-      .enum(['true', 'false'])
-      .default('true')
-      .transform((v) => v === 'true'),
     DB_LOGGING: z
       .enum(['true', 'false'])
       .default('false')
