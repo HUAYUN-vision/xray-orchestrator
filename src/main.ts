@@ -6,7 +6,11 @@ import { AppConfigService } from './config/app-config.service';
 import { setupApp } from './setup-app';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    // Raw body for the HMAC check of payments-service callbacks.
+    rawBody: true,
+  });
   app.useLogger(app.get(Logger));
   // useLogger does not flush the buffer by itself: without this, startup logs show up
   // only after all bootstrap hooks finish, and a slow hook looks like a hang.

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import type { WidgetRendererService } from '../../widget/widget-renderer.service';
 import type { WidgetScreensService } from '../../widget/widget-screens.service';
 import type { BotContext } from '../bot-context';
+import type { PaymentMessagesService } from '../payment-messages.service';
 import type { WidgetApiService } from '../widget-api.service';
 import { WidgetHandler } from './widget.handler';
 
@@ -16,6 +17,7 @@ describe('WidgetHandler', () => {
   let screens: Record<string, jest.Mock>;
   let handler: WidgetHandler;
   let sendMessage: jest.Mock;
+  let payments: Record<string, jest.Mock>;
   const order: string[] = [];
 
   beforeAll(() => {
@@ -36,11 +38,13 @@ describe('WidgetHandler', () => {
       key: jest.fn((_u: string, _k: string, m?: string) => Promise.resolve(keyScreen(m))),
     };
     sendMessage = jest.fn().mockResolvedValue({});
+    payments = { sendInvoice: jest.fn().mockResolvedValue(home) };
     const renderer = { render: jest.fn(() => ({ html: '<p>w</p>' })) };
     handler = new WidgetHandler(
       api as unknown as WidgetApiService,
       renderer as unknown as WidgetRendererService,
       screens as unknown as WidgetScreensService,
+      payments as unknown as PaymentMessagesService,
     );
   });
 
@@ -121,6 +125,19 @@ describe('WidgetHandler', () => {
     await handler.handleQuery(ctx(), query(`l:${K}`) as never);
     expect(api.editMessageWidgetData).toHaveBeenCalledWith(
       expect.objectContaining({ chat_data: JSON.stringify(keyScreen('err')) }),
+    );
+  });
+
+  it('top-up amount tap: creates the invoice via PaymentMessagesService, shows its screen', async () => {
+    await handler.handleQuery(ctx(), query('d:rub:300') as never);
+    expect(payments.sendInvoice).toHaveBeenCalledWith(
+      { userId: 'u3', chatId: 42, messageId: 10, locale: expect.any(String) },
+      'rub',
+      '300',
+    );
+    expect(screens.execute).not.toHaveBeenCalled();
+    expect(api.editMessageWidgetData).toHaveBeenCalledWith(
+      expect.objectContaining({ chat_data: JSON.stringify(home) }),
     );
   });
 });

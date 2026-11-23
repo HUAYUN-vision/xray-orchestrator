@@ -1,5 +1,5 @@
 import type { EntityManager } from 'typeorm';
-import { BalanceAccount, Transaction, type TransactionMeta } from './entities';
+import { BalanceAccount, type DepositMeta, Transaction, type TransactionMeta } from './entities';
 import { Currency, TransactionKind, TransactionStatus, TransactionType } from './enums';
 
 /** Not enough money on the balance in the requested currency. */
@@ -102,22 +102,88 @@ export async function creditBalance(
   movement: BalanceMovement,
 ): Promise<Transaction> {
   assertMovement(movement);
-  const column = movement.currency;
+  await addToAccount(manager, movement.userId, movement.currency, movement.amount);
+  return insertTransaction(manager, movement, TransactionType.Credit);
+}
+
+/**
+ * Records a top-up the user has not paid yet: a `pending` credit, the balance is unchanged.
+ * Its id is the `orderId` at payments-service (D20).
+ */
+export async function createPendingDeposit(
+  manager: EntityManager,
+  movement: Omit<BalanceMovement, 'kind'>,
+): Promise<Transaction> {
+  const deposit = { ...movement, kind: TransactionKind.Deposit };
+  assertMovement(deposit);
+  return insertTransaction(manager, deposit, TransactionType.Credit, TransactionStatus.Pending);
+}
+
+export interface DepositResult {
+  deposit: Transaction;
+  /** `true` only for the call that moved the deposit out of `pending`. */
+  applied: boolean;
+}
+
+/**
+ * Pays a pending deposit: credits the balance and marks it `completed`. Must run inside a transaction.
+ * Idempotent: the row is locked and only a `pending` deposit is applied, so a repeated
+ * callback does nothing. `null` if there is no such deposit.
+ */
+export async function completeDeposit(
+  manager: EntityManager,
+  depositId: string,
+  meta: Partial<DepositMeta> = {},
+): Promise<DepositResult | null> {
+  const deposit = await lockDeposit(manager, depositId);
+  if (!deposit) return null;
+  if (deposit.status !== TransactionStatus.Pending) return { deposit, applied: false };
+
+  await addToAccount(manager, deposit.userId, deposit.currency, deposit.amount);
+  deposit.status = TransactionStatus.Completed;
+  deposit.meta = { ...(deposit.meta as DepositMeta), ...meta };
+  return { deposit: await manager.save(deposit), applied: true };
+}
+
+/** Marks a pending deposit `failed` (payment canceled); a paid one is never touched. */
+export async function failDeposit(
+  manager: EntityManager,
+  depositId: string,
+): Promise<DepositResult | null> {
+  const deposit = await lockDeposit(manager, depositId);
+  if (!deposit) return null;
+  if (deposit.status !== TransactionStatus.Pending) return { deposit, applied: false };
+  deposit.status = TransactionStatus.Failed;
+  return { deposit: await manager.save(deposit), applied: true };
+}
+
+function lockDeposit(manager: EntityManager, id: string): Promise<Transaction | null> {
+  return manager.findOne(Transaction, {
+    where: { id, kind: TransactionKind.Deposit, type: TransactionType.Credit },
+    lock: { mode: 'pessimistic_write' },
+  });
+}
+
+async function addToAccount(
+  manager: EntityManager,
+  userId: string,
+  currency: Currency,
+  amount: string,
+): Promise<void> {
   const result = await manager
     .createQueryBuilder()
     .update(BalanceAccount)
-    .set({ [column]: () => `"${column}" + :amount` })
-    .where('user_id = :userId', { userId: movement.userId, amount: movement.amount })
+    .set({ [currency]: () => `"${currency}" + :amount` })
+    .where('user_id = :userId', { userId, amount })
     .execute();
-  if (result.affected !== 1) throw new Error(`No balance account for user ${movement.userId}`);
-
-  return insertTransaction(manager, movement, TransactionType.Credit);
+  if (result.affected !== 1) throw new Error(`No balance account for user ${userId}`);
 }
 
 function insertTransaction(
   manager: EntityManager,
   movement: BalanceMovement,
   type: TransactionType,
+  status = TransactionStatus.Completed,
 ): Promise<Transaction> {
   return manager.save(
     manager.create(Transaction, {
@@ -126,7 +192,7 @@ function insertTransaction(
       currency: movement.currency,
       type,
       kind: movement.kind,
-      status: TransactionStatus.Completed,
+      status,
       meta: movement.meta ?? null,
     }),
   );

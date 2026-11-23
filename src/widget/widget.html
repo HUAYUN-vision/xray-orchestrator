@@ -35,6 +35,10 @@
       .err {
         color: var(--tg-theme-destructive-text-color);
       }
+      .row {
+        display: flex;
+        gap: 6px;
+      }
     </style>
   </head>
   <body>
@@ -46,6 +50,8 @@
         L = __I18N__,
         A = document.getElementById('a');
       var C = { rub: '₽', cny: '¥', usdt: 'USDT' };
+      // Messages that report success; the rest are shown as errors.
+      var OK = { ok: 1, link: 1, inv: 1, dep: 1 };
       var S = null,
         busy = false,
         T = 0,
@@ -121,7 +127,7 @@
         var s = S || {},
           h = '';
         var msg = note || (s.m ? L['m-' + s.m] : '');
-        var bad = note ? noteErr : s.m && s.m !== 'ok';
+        var bad = note ? noteErr : s.m && !OK[s.m];
         if (msg) h += '<div class="msg' + (bad ? ' err' : '') + '">' + esc(msg) + '</div>';
         if (s.s === 'h') {
           h += '<h4>' + L.balance + '</h4>' + bal(s.b) + '<h4>' + L.keys + '</h4>';
@@ -133,6 +139,30 @@
                 .join('')
             : '<p class="mut">' + L['no-keys'] + '</p>';
           h += btn(L.buy, 'b');
+          if (s.f) h += btn(L.topup, 'd');
+        } else if (s.s === 'd') {
+          h +=
+            '<h4>' +
+            L['topup-title'] +
+            '</h4>' +
+            bal(s.b) +
+            '<p class="mut">' +
+            L['topup-hint'] +
+            '</p>';
+          h += s.p
+            .map(function (p) {
+              return (
+                '<div class="row">' +
+                p[1]
+                  .map(function (a) {
+                    return btn(a + ' ' + C[p[0]], 'd:' + p[0] + ':' + a);
+                  })
+                  .join('') +
+                '</div>'
+              );
+            })
+            .join('');
+          h += btn(L.back, 'h');
         } else if (s.s === 'b') {
           h += '<h4>' + L.tariffs + '</h4>';
           h += s.t.length
@@ -154,6 +184,7 @@
               );
             })
             .join('');
+          if (s.f) h += btn(L.topup, 'd');
           h += btn(L.back, 'b');
         } else if (s.s === 'k') {
           h += '<h4>🔑 ' + s.i.slice(0, 8) + '</h4><p>' + till(s.a, s.e) + '</p>';

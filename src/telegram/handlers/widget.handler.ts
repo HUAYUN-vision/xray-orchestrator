@@ -5,12 +5,15 @@ import { WidgetScreensService } from '../../widget/widget-screens.service';
 import { parseCommand, type WidgetState } from '../../widget/widget-state';
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
+import { PaymentMessagesService } from '../payment-messages.service';
 import type { WidgetQuery } from '../types/widget';
 import { WidgetApiService } from '../widget-api.service';
 import { getWidgetQuery } from '../widget-query';
 
 /**
- * The main UI: /start sends the widget, taps in it arrive as `widget_query`.
+ * HTML widget UI — on hold (D21): Telegram answers sendWidget with INPUT_MEDIA_WIDGET_NOT_ALLOWED,
+ * so /start sends the button menu (MenuHandler). Queries of already sent widgets are still served.
+ * Taps in a widget arrive as `widget_query`.
  * A query is answered right away ("ok"), then the new screen is set via editMessageWidgetData:
  * a purchase may take longer than the 15 s answer limit.
  *
@@ -25,10 +28,10 @@ export class WidgetHandler implements BotHandler {
     private readonly api: WidgetApiService,
     private readonly renderer: WidgetRendererService,
     private readonly screens: WidgetScreensService,
+    private readonly payments: PaymentMessagesService,
   ) {}
 
   register(bot: AppBot): void {
-    bot.command('start', (ctx) => this.sendHome(ctx));
     bot.use((ctx, next) => this.onQuery(ctx, next));
   }
 
@@ -56,10 +59,20 @@ export class WidgetHandler implements BotHandler {
     await this.api.answerWidgetQuery({ widget_query_id: query.id, data: cmd ? 'ok' : 'bad' });
     if (!cmd || !ctx.user || query.chat === undefined || query.message_id === undefined) return;
 
-    const state =
-      cmd.c === 'link'
-        ? await this.sendLink(ctx, query.chat.id, ctx.user.id, cmd.keyId)
-        : await this.screens.execute(ctx.user.id, cmd);
+    let state: WidgetState;
+    if (cmd.c === 'link') {
+      state = await this.sendLink(ctx, query.chat.id, ctx.user.id, cmd.keyId);
+    } else if (cmd.c === 'invoice') {
+      const target = {
+        userId: ctx.user.id,
+        chatId: query.chat.id,
+        messageId: query.message_id,
+        locale: ctx.locale,
+      };
+      state = await this.payments.sendInvoice(target, cmd.currency, cmd.amount);
+    } else {
+      state = await this.screens.execute(ctx.user.id, cmd);
+    }
     try {
       await this.api.editMessageWidgetData({
         chat_id: query.chat.id,

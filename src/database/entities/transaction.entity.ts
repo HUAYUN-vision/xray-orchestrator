@@ -15,8 +15,14 @@ import { User } from './user.entity';
 export interface DepositMeta {
   /** Payment provider, e.g. `yookassa`, `wechat`, `crypto`. */
   provider: string;
-  /** Payment id on the provider's side. */
+  /** Invoice id at payments-service. */
   paymentId?: string;
+  /** Payment page (yookassa) or `weixin://` link for a QR code (wechat). */
+  paymentUrl?: string;
+  /** Menu message to refresh when the deposit is paid. */
+  messageId?: number;
+  /** User's language at the time of the top-up: for the "paid" notification. */
+  locale?: string;
 }
 
 export interface PaymentMeta {

@@ -9,12 +9,14 @@ import { UserKeysRepository } from '../database/repositories/user-keys.repositor
 import { KeyPurchaseError, KeyPurchaseService } from '../modules/keys/key-purchase.service';
 import { RatesUnavailableError } from '../modules/rates/exchange-rates.service';
 import { SubscriptionService } from '../modules/subscription/subscription.service';
+import { TopUpService } from '../modules/payments/top-up.service';
 import type {
   Balances,
   HomeState,
   KeyState,
   PayState,
   TariffsState,
+  TopUpState,
   WidgetCommand,
   WidgetMessage,
   WidgetState,
@@ -35,6 +37,7 @@ export class WidgetScreensService {
     private readonly keys: UserKeysRepository,
     private readonly purchase: KeyPurchaseService,
     private readonly subscription: SubscriptionService,
+    private readonly topUps: TopUpService,
   ) {}
 
   /** Runs a command and returns the next screen; failures become a message on a screen. */
@@ -52,6 +55,10 @@ export class WidgetScreensService {
           return await this.key(userId, cmd.keyId);
         case 'buy':
           return await this.buy(userId, cmd);
+        // 'invoice' is handled by WidgetHandler (it also sends the payment link).
+        case 'topup':
+        case 'invoice':
+          return await this.topUp(userId);
       }
     } catch (err) {
       this.logger.error(`Widget command ${cmd.c} failed for user ${userId}: ${String(err)}`);
@@ -71,7 +78,20 @@ export class WidgetScreensService {
       m,
       b: balances(account),
       k: keys.map((k) => [k.id, unix(k.expiresAt), isActive(k, now) ? 1 : 0]),
+      f: this.topUpFlag(),
     };
+  }
+
+  /** Top-up screen; with top-up off, home with "payerr". */
+  async topUp(userId: string, m?: WidgetMessage): Promise<TopUpState | HomeState> {
+    const presets = this.topUps.presets();
+    if (presets.length === 0) return this.home(userId, 'payerr');
+    const account = await this.balances.findByUserId(userId);
+    return { s: 'd', n: Date.now(), m, b: balances(account), p: presets };
+  }
+
+  private topUpFlag(): 1 | undefined {
+    return this.topUps.presets().length > 0 ? 1 : undefined;
   }
 
   private async tariffList(m?: WidgetMessage): Promise<TariffsState> {
@@ -106,6 +126,7 @@ export class WidgetScreensService {
       q: account?.seqno ?? 0,
       b: balances(account),
       o: quotes.map((q) => [q.currency, q.amount]),
+      f: this.topUpFlag(),
     };
   }
 

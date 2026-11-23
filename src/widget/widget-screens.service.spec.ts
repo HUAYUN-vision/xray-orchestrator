@@ -41,6 +41,7 @@ describe('WidgetScreensService', () => {
         purchase: jest.fn().mockResolvedValue({ key }),
       },
       subscription: { buildUrl: jest.fn((id: string) => `https://x.test/api/sub/${id}`) },
+      topUps: { presets: jest.fn().mockReturnValue([]) },
     };
     service = new WidgetScreensService(
       deps.balances as never,
@@ -48,6 +49,7 @@ describe('WidgetScreensService', () => {
       deps.keys as never,
       deps.purchase as never,
       deps.subscription as never,
+      deps.topUps as never,
     );
   });
 
@@ -140,6 +142,21 @@ describe('WidgetScreensService', () => {
   ])('buy failure %p → screen %s with message %s', async (err, screen, m) => {
     deps.purchase.purchase.mockRejectedValue(err);
     await expect(run(buy)).resolves.toMatchObject({ s: screen, m });
+  });
+
+  it('top-up: screen with presets, flag on home and pay; off → home with "payerr"', async () => {
+    await expect(run({ c: 'topup' })).resolves.toMatchObject({ s: 'h', m: 'payerr' });
+    expect(await run({ c: 'home' })).not.toHaveProperty('f', 1);
+
+    const presets = [[Currency.RUB, ['100', '300']]];
+    deps.topUps.presets.mockReturnValue(presets);
+    await expect(run({ c: 'topup' })).resolves.toMatchObject({
+      s: 'd',
+      b: { rub: '500.12' },
+      p: presets,
+    });
+    await expect(run({ c: 'home' })).resolves.toMatchObject({ f: 1 });
+    await expect(run({ c: 'pay', tariffId: T })).resolves.toMatchObject({ f: 1 });
   });
 
   it('state of a full home screen fits chat_data (1 KB)', async () => {
