@@ -7,7 +7,7 @@ import type { BotHandler } from '../bot-handler.interface';
 /** Commands shown in the Telegram menu; descriptions come from `command-<name>` keys. */
 export const MENU_COMMANDS = ['start', 'help', 'language'] as const;
 
-/** /help and the localized command menu; /start is in WidgetHandler. */
+/** /help and the localized command menu; /start is in MenuHandler. */
 @Injectable()
 export class CommandsHandler implements BotHandler {
   private readonly logger = new Logger(CommandsHandler.name);

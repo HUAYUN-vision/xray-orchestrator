@@ -3,7 +3,7 @@ import type { UsersRepository } from '../../database/repositories/users.reposito
 import { InMemoryUsersRepository } from '../../../test/helpers/in-memory-users.repository';
 import { makeCtx } from '../../../test/helpers/make-ctx';
 import { LanguageHandler } from './language.handler';
-import type { WidgetHandler } from './widget.handler';
+import type { MenuHandler } from './menu.handler';
 
 describe('LanguageHandler', () => {
   const i18n = new I18nService();
@@ -19,7 +19,7 @@ describe('LanguageHandler', () => {
       users as unknown as UsersRepository,
       {
         sendHome,
-      } as unknown as WidgetHandler,
+      } as unknown as MenuHandler,
     );
   });
 

@@ -3,18 +3,18 @@ import { UsersRepository } from '../../database/repositories/users.repository';
 import { I18nService } from '../../i18n/i18n.service';
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
-import { WidgetHandler } from './widget.handler';
+import { MenuHandler } from './menu.handler';
 
 /**
  * /language — show the current language, /language <code> — switch it.
- * After a change a new widget is sent: its HTML carries the strings of one language.
+ * After a change a new menu is sent in the new language (the menu also has a language button).
  */
 @Injectable()
 export class LanguageHandler implements BotHandler {
   constructor(
     private readonly i18n: I18nService,
     private readonly users: UsersRepository,
-    private readonly widget: WidgetHandler,
+    private readonly menu: MenuHandler,
   ) {}
 
   register(bot: AppBot): void {
@@ -43,7 +43,6 @@ export class LanguageHandler implements BotHandler {
     }
     ctx.locale = code;
     await ctx.reply(ctx.t('language-changed', { language: ctx.t('language-name') }));
-    // Widget HTML is fixed at send time: a new language needs a new widget.
-    await this.widget.sendHome(ctx);
+    await this.menu.sendHome(ctx);
   }
 }

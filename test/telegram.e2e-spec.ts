@@ -46,20 +46,48 @@ describe('Telegram (e2e)', () => {
       calls.length = 0;
     });
 
-    const widgets = () => calls.filter((c) => c.method === 'sendWidget').map((c) => c.payload);
+    const sent = () => calls.filter((c) => c.method === 'sendMessage').map((c) => c.payload);
+    const buttonData = (payload: Record<string, unknown>) =>
+      (payload.reply_markup as { inline_keyboard: { callback_data?: string }[][] }).inline_keyboard
+        .flat()
+        .map((b) => b.callback_data);
 
-    it('/start sends the widget in the default language', async () => {
+    it('/start sends the button menu in the default language', async () => {
       await bot.handleUpdate(textUpdate('/start'));
-      const [w] = widgets();
-      expect(w).toMatchObject({ chat_id: 42, allow_queries: true });
-      expect(w.caption).toContain('Привет');
-      expect(w.html).toContain('Купить ключ');
-      expect(JSON.parse(w.chat_data as string)).toMatchObject({ s: 'h', k: [] });
+      const [m] = sent();
+      expect(m).toMatchObject({ chat_id: 42, parse_mode: 'HTML' });
+      expect(m.text).toContain('Привет');
+      expect(m.text).toContain('Баланс');
+      // `d` (top-up) is there only when payments are configured.
+      expect(buttonData(m)).toEqual(expect.arrayContaining(['b', 'g']));
+      expect(calls.some((c) => c.method === 'sendWidget')).toBe(false);
     });
 
     it('uses Telegram language_code when nothing is saved', async () => {
       await bot.handleUpdate(textUpdate('/start', { id: 7, language_code: 'en-US' }));
-      expect(widgets()[0].html).toContain('Buy a key');
+      expect(sent()[0].text).toContain('Balance');
+    });
+
+    it('a menu button is answered and the menu message is edited in place', async () => {
+      await bot.handleUpdate({
+        update_id: 60,
+        callback_query: {
+          id: 'cq1',
+          from: { id: 42, is_bot: false, first_name: 'U' },
+          chat_instance: 'ci',
+          data: 'b',
+          message: {
+            message_id: 9,
+            date: 0,
+            chat: { id: 42, type: 'private', first_name: 'U' },
+            text: 'menu',
+          },
+        },
+      } as never);
+      expect(calls.map((c) => c.method)).toEqual(['answerCallbackQuery', 'editMessageText']);
+      expect(calls[1].payload).toMatchObject({ chat_id: 42, message_id: 9 });
+      expect(calls[1].payload.text).toContain('Тарифы');
+      expect(buttonData(calls[1].payload)).toEqual(['h']);
     });
 
     it('a widget query is answered and the widget state is replaced', async () => {
@@ -82,12 +110,12 @@ describe('Telegram (e2e)', () => {
       const user = { id: 100, language_code: 'ru' };
       await bot.handleUpdate(textUpdate('/language en', user, 2));
       await bot.handleUpdate(textUpdate('/help', user, 3));
+      // A new menu in the new language follows the switch.
       expect(sentTexts()).toEqual([
         expect.stringContaining('Language switched to English'),
+        expect.stringContaining('Balance'),
         expect.stringContaining('Commands:'),
       ]);
-      // A new widget in the new language follows the switch.
-      expect(widgets()[0].html).toContain('Buy a key');
     });
 
     it('/id shows the users.id; admin commands do not exist for non-admins', async () => {

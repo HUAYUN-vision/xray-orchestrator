@@ -13,6 +13,7 @@ import {
 import {
   Currency,
   TransactionKind,
+  TransactionStatus,
   TransactionType,
   UserKeyStatus,
 } from '../../src/database/enums';
@@ -179,6 +180,80 @@ describe('Database (db)', () => {
     it.each(['0', '-1', '1e3', '0.000000001', 'abc'])('rejects amount %p', async (amount) => {
       const user = await newUser();
       await expect(deposit(user.id, amount)).rejects.toThrow(RangeError);
+    });
+
+    describe('top-up (pending deposit)', () => {
+      const pending = (userId: string, amount = '300') =>
+        balance.createDeposit({
+          userId,
+          currency: Currency.RUB,
+          amount,
+          meta: { provider: 'yookassa' },
+        });
+
+      it('a pending deposit does not change the balance; meta is merged', async () => {
+        const user = await newUser();
+        const dep = await pending(user.id);
+        expect(dep.status).toBe(TransactionStatus.Pending);
+        await balance.updateDepositMeta(dep.id, { paymentId: 'i1', paymentUrl: 'https://p/1' });
+        expect((await balance.findDeposit(dep.id))?.meta).toEqual({
+          provider: 'yookassa',
+          paymentId: 'i1',
+          paymentUrl: 'https://p/1',
+        });
+        expect(await balance.findByUserId(user.id)).toMatchObject({ rub: '0.00000000' });
+      });
+
+      it('concurrent callbacks credit exactly once and do not bump seqno', async () => {
+        const user = await newUser();
+        const dep = await pending(user.id, '99.5');
+        const seqno = (await balance.findByUserId(user.id))?.seqno;
+        const results = await Promise.all(
+          Array.from({ length: 5 }, () => balance.completeDeposit(dep.id, { paymentId: 'i1' })),
+        );
+        expect(results.filter((r) => r?.applied)).toHaveLength(1);
+        expect(await balance.findByUserId(user.id)).toMatchObject({ rub: '99.50000000', seqno });
+        expect(await balance.findDeposit(dep.id)).toMatchObject({
+          status: TransactionStatus.Completed,
+          meta: { provider: 'yookassa', paymentId: 'i1' },
+        });
+      });
+
+      it('a canceled deposit is never credited; a paid one is never failed', async () => {
+        const user = await newUser();
+        const canceled = await pending(user.id);
+        expect((await balance.failDeposit(canceled.id))?.applied).toBe(true);
+        expect((await balance.completeDeposit(canceled.id))?.applied).toBe(false);
+
+        const paid = await pending(user.id);
+        await balance.completeDeposit(paid.id);
+        expect((await balance.failDeposit(paid.id))?.applied).toBe(false);
+        expect((await balance.findByUserId(user.id))?.rub).toBe('300.00000000');
+      });
+
+      it('unknown or non-deposit transaction → null', async () => {
+        const user = await newUser();
+        const tx = await pay(user.id, '1').catch(() => null);
+        expect(tx).toBeNull();
+        const credit = await deposit(user.id, '5');
+        await expect(balance.completeDeposit(randomUUID())).resolves.toBeNull();
+        // A completed regular deposit is found but not applied again.
+        expect((await balance.completeDeposit(credit.id))?.applied).toBe(false);
+      });
+
+      it('findReusableDeposit: recent pending one with a link, same amount', async () => {
+        const user = await newUser();
+        const since = new Date(Date.now() - 60_000);
+        const dep = await pending(user.id);
+        expect(await balance.findReusableDeposit(user.id, Currency.RUB, '300', since)).toBeNull();
+        await balance.updateDepositMeta(dep.id, { paymentUrl: 'https://p/1' });
+        expect((await balance.findReusableDeposit(user.id, Currency.RUB, '300', since))?.id).toBe(
+          dep.id,
+        );
+        expect(await balance.findReusableDeposit(user.id, Currency.RUB, '100', since)).toBeNull();
+        await balance.failDeposit(dep.id);
+        expect(await balance.findReusableDeposit(user.id, Currency.RUB, '300', since)).toBeNull();
+      });
     });
   });
 

@@ -17,6 +17,9 @@ export type WidgetMessage =
   | 'tariff'
   | 'gone'
   | 'link'
+  | 'inv'
+  | 'payerr'
+  | 'dep'
   | 'err';
 
 export type Balances = Record<Currency, string>;
@@ -27,11 +30,12 @@ interface Base {
   m?: WidgetMessage;
 }
 
-/** Home: balances and keys `[id, expiresAt (unix s), active 1/0]`. */
+/** Home: balances, keys `[id, expiresAt (unix s), active 1/0]`, `f: 1` if top-up is available. */
 export interface HomeState extends Base {
   s: 'h';
   b: Balances;
   k: [string, number, 0 | 1][];
+  f?: 1;
 }
 
 /** Tariffs: `[id, days, price, currency]`. */
@@ -48,6 +52,15 @@ export interface PayState extends Base {
   q: number;
   b: Balances;
   o: [Currency, string][];
+  /** Top-up is available: offered when the balance is short. */
+  f?: 1;
+}
+
+/** Top-up: balances and amounts per currency `[currency, amounts]` (D20). */
+export interface TopUpState extends Base {
+  s: 'd';
+  b: Balances;
+  p: [Currency, string[]][];
 }
 
 /**
@@ -63,7 +76,7 @@ export interface KeyState extends Base {
   u?: 1;
 }
 
-export type WidgetState = HomeState | TariffsState | PayState | KeyState;
+export type WidgetState = HomeState | TariffsState | PayState | KeyState | TopUpState;
 
 export type WidgetCommand =
   | { c: 'home' }
@@ -71,7 +84,9 @@ export type WidgetCommand =
   | { c: 'pay'; tariffId: string }
   | { c: 'buy'; tariffId: string; currency: Currency; seqno: number; amount: string }
   | { c: 'key'; keyId: string }
-  | { c: 'link'; keyId: string };
+  | { c: 'link'; keyId: string }
+  | { c: 'topup' }
+  | { c: 'invoice'; currency: Currency; amount: string };
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const CURRENCY = Object.values(Currency).join('|');
@@ -79,17 +94,21 @@ const BUY_RE = new RegExp(`^p:(${UUID}):(${CURRENCY}):(\\d{1,9}):(\\d{1,12}(?:\\
 const PAY_RE = new RegExp(`^t:(${UUID})$`);
 const KEY_RE = new RegExp(`^k:(${UUID})$`);
 const LINK_RE = new RegExp(`^l:(${UUID})$`);
+const INVOICE_RE = new RegExp(`^d:(${CURRENCY}):(\\d{1,9}(?:\\.\\d{1,2})?)$`);
 
 /** Parses a command from the widget; `null` for anything unexpected. */
 export function parseCommand(data: string): WidgetCommand | null {
   if (data === 'h') return { c: 'home' };
   if (data === 'b') return { c: 'tariffs' };
+  if (data === 'd') return { c: 'topup' };
   let m = PAY_RE.exec(data);
   if (m) return { c: 'pay', tariffId: m[1] };
   m = KEY_RE.exec(data);
   if (m) return { c: 'key', keyId: m[1] };
   m = LINK_RE.exec(data);
   if (m) return { c: 'link', keyId: m[1] };
+  m = INVOICE_RE.exec(data);
+  if (m) return { c: 'invoice', currency: m[1] as Currency, amount: m[2] };
   m = BUY_RE.exec(data);
   if (m) {
     return {

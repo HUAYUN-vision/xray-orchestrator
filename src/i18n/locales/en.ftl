@@ -38,6 +38,9 @@ w-expired = expired
 w-pay-title = Payment
 w-pay = Pay
 w-copy = Get subscription link
+w-topup = Top up balance
+w-topup-title = Top-up
+w-topup-hint = The bot will send the payment link as a message. Rubles via YooKassa, yuan via WeChat Pay.
 w-howto = Add the subscription link to Hiddify, v2rayN, v2rayNG, Streisand or FoXray. Russian and Chinese sites open directly, without VPN.
 w-m-ok = Key created
 w-m-funds = Insufficient funds
@@ -49,12 +52,21 @@ w-m-fail = Could not create the key, money returned
 w-m-tariff = This plan is unavailable
 w-m-gone = Key not found
 w-m-link = The link is sent in a message below
+w-m-inv = Payment link sent as a message below
+w-m-payerr = Top-up is unavailable now, try again later
+w-m-dep = Balance topped up
 w-m-slow = Too fast, wait a couple of seconds
 w-m-err = Something went wrong, try again
 
 # Subscription link (a regular message: copying is blocked inside the widget)
 sub-link = Subscription link for your key. Add it to Hiddify, v2rayN, v2rayNG, Streisand or FoXray:
 sub-copy = 📋 Copy link
+
+topup-description = VPN balance top-up
+topup-link = Invoice for { $amount }. Tap the button to pay. The balance is topped up automatically after payment.
+topup-pay = 💳 Pay
+topup-qr = Invoice for { $amount }. Scan the QR code in WeChat (or save the picture and open it via "Scan" in WeChat). The balance is topped up automatically after payment.
+topup-paid = ✅ Balance topped up by { $amount }
 
 # /id is for everyone; server admin (D19), messages in HTML
 id-yours = Your id: <code>{ $id }</code>
@@ -104,3 +116,11 @@ admin-progress-on = ⏳ Enabling <b>{ $code }</b> and installing keys on the nod
 admin-progress-off = ⏳ Disabling <b>{ $code }</b> and removing keys from the node…
 admin-progress-sync = ⏳ Syncing <b>{ $code }</b>…
 admin-progress-del = ⏳ Deleting <b>{ $code }</b> and cleaning the node…
+
+# Button menu (D21)
+menu-language = Language
+menu-language-title = Choose a language
+menu-price = Price
+menu-topup-custom = Custom amount
+menu-topup-amount = Send the top-up amount as a message, from { $min } to { $max }.
+menu-topup-invalid = Could not read the amount. Send a number from { $min } to { $max }.

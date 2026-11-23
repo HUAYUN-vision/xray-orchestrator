@@ -70,4 +70,52 @@ describe('validateEnv', () => {
       }),
     ).toThrow(/WEBHOOK_URL/);
   });
+
+  describe('payments', () => {
+    const payments = {
+      PAYMENTS_URL: 'http://payments:3000/',
+      PAYMENTS_API_KEY: 'k'.repeat(32),
+      PUBLIC_URL: 'https://bot.example.com',
+    };
+
+    it('is off by default, with preset amounts', () => {
+      const env = validateEnv(base);
+      expect(env.PAYMENTS_URL).toBeUndefined();
+      expect(env.TOPUP_PRESETS_RUB).toEqual(['100', '300', '500', '1000']);
+      expect(env.TOPUP_PRESETS_CNY).toEqual(['10', '30', '50', '100']);
+    });
+
+    it('accepts a complete config and trims the trailing slash', () => {
+      expect(validateEnv({ ...base, ...payments }).PAYMENTS_URL).toBe('http://payments:3000');
+    });
+
+    it('requires URL and key together, and PUBLIC_URL for the callback', () => {
+      expect(() => validateEnv({ ...base, PAYMENTS_URL: payments.PAYMENTS_URL })).toThrow(
+        /PAYMENTS_API_KEY/,
+      );
+      expect(() => validateEnv({ ...base, ...payments, PUBLIC_URL: undefined })).toThrow(
+        /PUBLIC_URL/,
+      );
+    });
+
+    it('parses presets; empty turns a currency off; rejects bad amounts', () => {
+      const env = validateEnv({ ...base, TOPUP_PRESETS_RUB: ' 150, 99.5 ', TOPUP_PRESETS_CNY: '' });
+      expect(env.TOPUP_PRESETS_RUB).toEqual(['150', '99.5']);
+      expect(env.TOPUP_PRESETS_CNY).toEqual([]);
+      expect(() => validateEnv({ ...base, TOPUP_PRESETS_RUB: '0' })).toThrow(/TOPUP_PRESETS_RUB/);
+      expect(() => validateEnv({ ...base, TOPUP_PRESETS_RUB: '1.234' })).toThrow();
+      expect(() => validateEnv({ ...base, TOPUP_PRESETS_RUB: '1,2,3,4,5,6,7' })).toThrow();
+    });
+
+    it('custom amount range: defaults, min ≤ max', () => {
+      const env = validateEnv(base);
+      expect([env.TOPUP_MIN_RUB, env.TOPUP_MAX_RUB]).toEqual(['100', '100000']);
+      expect([env.TOPUP_MIN_CNY, env.TOPUP_MAX_CNY]).toEqual(['10', '10000']);
+      expect(validateEnv({ ...base, TOPUP_MIN_RUB: ' 50.5 ' }).TOPUP_MIN_RUB).toBe('50.5');
+      expect(() => validateEnv({ ...base, TOPUP_MIN_CNY: '500', TOPUP_MAX_CNY: '100' })).toThrow(
+        /TOPUP_MAX_CNY/,
+      );
+      expect(() => validateEnv({ ...base, TOPUP_MIN_RUB: '0' })).toThrow(/TOPUP_MIN_RUB/);
+    });
+  });
 });
