@@ -5,10 +5,12 @@ import { DatabaseModule } from '../database/database.module';
 import { I18nModule } from '../i18n/i18n.module';
 import { PaymentsModule } from '../modules/payments/payments.module';
 import { ServersModule } from '../modules/servers/servers.module';
+import { TariffsModule } from '../modules/tariffs/tariffs.module';
 import { WidgetModule } from '../widget/widget.module';
 import type { BotContext } from './bot-context';
 import type { BotHandler } from './bot-handler.interface';
 import { AdminHandler } from './handlers/admin.handler';
+import { TariffAdminHandler } from './handlers/tariff-admin.handler';
 import { CommandsHandler } from './handlers/commands.handler';
 import { I18nMiddleware } from './handlers/i18n.middleware';
 import { LanguageHandler } from './handlers/language.handler';
@@ -23,7 +25,7 @@ import { TelegramService } from './telegram.service';
 import { WidgetApiService } from './widget-api.service';
 
 @Module({
-  imports: [DatabaseModule, I18nModule, WidgetModule, ServersModule, PaymentsModule],
+  imports: [DatabaseModule, I18nModule, WidgetModule, ServersModule, TariffsModule, PaymentsModule],
   controllers: [TelegramWebhookController],
   providers: [
     {
@@ -36,6 +38,7 @@ import { WidgetApiService } from './widget-api.service';
     CommandsHandler,
     LanguageHandler,
     AdminHandler,
+    TariffAdminHandler,
     MenuHandler,
     WidgetHandler,
     MenuService,
@@ -49,6 +52,7 @@ import { WidgetApiService } from './widget-api.service';
         CommandsHandler,
         LanguageHandler,
         AdminHandler,
+        TariffAdminHandler,
         MenuHandler,
         WidgetHandler,
       ],

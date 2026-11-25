@@ -13,6 +13,7 @@ import {
 import type { AppBot, BotContext } from '../bot-context';
 import type { BotHandler } from '../bot-handler.interface';
 import { MENU_COMMANDS } from './commands.handler';
+import { TARIFF_ADMIN_COMMANDS } from './tariff-admin.handler';
 
 /** Admin-only commands, added to the menu of admins' chats. */
 export const ADMIN_COMMANDS = ['servers', 'server_add'] as const;
@@ -61,10 +62,12 @@ export class AdminHandler implements BotHandler {
       const admins = await this.users.findByIds([...this.admins]);
       for (const user of admins) {
         const locale = this.localeOf(user);
-        const commands = [...MENU_COMMANDS, ...ADMIN_COMMANDS].map((command) => ({
-          command,
-          description: this.i18n.t(locale, `command-${command}`),
-        }));
+        const commands = [...MENU_COMMANDS, ...ADMIN_COMMANDS, ...TARIFF_ADMIN_COMMANDS].map(
+          (command) => ({
+            command,
+            description: this.i18n.t(locale, `command-${command}`),
+          }),
+        );
         await bot.api.setMyCommands(commands, {
           scope: { type: 'chat', chat_id: user.telegramId },
         });

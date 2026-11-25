@@ -22,9 +22,12 @@ import type {
   WidgetState,
 } from './widget-state';
 
-/** Lists are capped: chat_data is 1 KB and the bubble is at most 600 px high, without scrolling. */
+/**
+ * Lists are capped: chat_data is 1 KB and the bubble is at most 600 px high, without scrolling.
+ * Buyers see this many tariffs, shortest first. The admin hint `admin-tariff-add-usage` names this number.
+ */
 const MAX_KEYS = 6;
-const MAX_TARIFFS = 6;
+export const MAX_TARIFFS = 6;
 
 /** Builds widget screens and runs widget commands for a user. */
 @Injectable()

@@ -123,6 +123,8 @@ describe('Telegram (e2e)', () => {
       await bot.handleUpdate(textUpdate('/id', user, 4));
       await bot.handleUpdate(textUpdate('/servers', user, 5));
       await bot.handleUpdate(textUpdate('/server_add sg 10.0.0.1 secret', user, 6));
+      await bot.handleUpdate(textUpdate('/tariffs', user, 7));
+      await bot.handleUpdate(textUpdate('/tariff_add 30 299', user, 8));
       expect(sentTexts()).toEqual([
         expect.stringMatching(/^Your id: <code>[0-9a-f-]{36}<\/code>$/),
       ]);

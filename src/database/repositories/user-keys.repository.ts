@@ -120,6 +120,14 @@ export class UserKeysRepository {
     return (result.raw as { id: string }[]).map((r) => r.id);
   }
 
+  /**
+   * Keys sold on this tariff, including ones the user removed from the list.
+   * Those rows still reference the tariff (`ON DELETE RESTRICT`), so it cannot be deleted.
+   */
+  countByTariff(tariffId: string): Promise<number> {
+    return this.repo.count({ where: { tariffId }, withDeleted: true });
+  }
+
   /** Ids of keys that must exist on servers: active, unexpired, not deleted. */
   async findLiveIds(): Promise<string[]> {
     const rows = await this.repo.find({

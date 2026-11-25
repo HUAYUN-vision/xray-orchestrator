@@ -241,8 +241,11 @@ describe('AdminHandler', () => {
       'language',
       'servers',
       'server_add',
+      'tariffs',
+      'tariff_add',
     ]);
     expect(commands[3].description).toBe('Servers (admin)');
+    expect(commands[5].description).toBe('Tariffs (admin)');
     expect(opts).toEqual({ scope: { type: 'chat', chat_id: 42 } });
   });
 });

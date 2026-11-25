@@ -72,6 +72,8 @@ topup-paid = ✅ Баланс пополнен на { $amount }
 id-yours = Ваш id: <code>{ $id }</code>
 command-servers = Серверы (админ)
 command-server_add = Добавить сервер (админ)
+command-tariffs = Тарифы (админ)
+command-tariff_add = Добавить тариф (админ)
 admin-servers-title = <b>Серверы</b>
 admin-servers-empty = Серверов пока нет.
 admin-add-hint = Добавить: /server_add &lt;code&gt; &lt;host&gt; &lt;api_key&gt; [api_port]
@@ -116,6 +118,39 @@ admin-progress-on = ⏳ Включаю <b>{ $code }</b> и ставлю ключ
 admin-progress-off = ⏳ Выключаю <b>{ $code }</b> и удаляю ключи с ноды…
 admin-progress-sync = ⏳ Синхронизирую <b>{ $code }</b>…
 admin-progress-del = ⏳ Удаляю <b>{ $code }</b> и чищу ноду…
+
+# Админка тарифов: те же кнопки, что у серверов. Скрытие не трогает купленные ключи.
+admin-tariffs-title = <b>Тарифы</b>
+admin-tariffs-empty = Тарифов пока нет.
+admin-tariff-add-hint = Добавить: /tariff_add &lt;дни&gt; &lt;цена&gt; [валюта] [трафик_гб]
+admin-tariff-add-usage =
+    Формат: <code>/tariff_add &lt;дни&gt; &lt;цена&gt; [валюта] [трафик_гб]</code>
+    Пример: <code>/tariff_add 30 299 rub 100</code>
+    дни — от 1 до 3650; цена — число до 2 знаков после запятой, 0 значит бесплатно.
+    валюта: rub, cny, usdt (по умолчанию rub).
+    трафик — гигабайты; не указывайте или поставьте 0, тогда безлимит.
+    Покупателю видны 6 самых коротких тарифов в продаже.
+admin-tariff-invalid = Неверный параметр: <b>{ $field }</b>.
+admin-tariff-see-list = Список: /tariffs
+admin-tariff-free = бесплатно
+admin-tariff-unlimited = безлимит
+admin-tariff-traffic = { $gb } ГБ
+admin-tariff-keys = ключей: { $count }
+admin-tariff-hidden-keys = скрыт с продажи, ключей: { $count }
+admin-tariff-added = ✅ Тариф добавлен и показан в продаже: <b>{ $label }</b>
+admin-tariff-shown = ▶️ <b>{ $label }</b> снова в продаже
+admin-tariff-hidden = ⏸ <b>{ $label }</b> скрыт с продажи
+admin-tariff-keys-stay = Уже купленные ключи работают как прежде.
+admin-tariff-deleted = 🗑 Тариф <b>{ $label }</b> удалён
+admin-tariff-delete-confirm = Удалить тариф <b>{ $label }</b>? Его ещё никто не покупал, он пропадёт совсем.
+admin-tariff-in-use = Нельзя удалить: по этому тарифу уже есть ключи. Скройте его с продажи — купленные ключи останутся работать.
+admin-tariff-none-active = ⚠️ Тарифов в продаже не осталось — купить ключ нельзя.
+admin-tariff-too-many = ⚠️ В продаже { $count } тарифов, покупателю видны только { $max } самых коротких.
+admin-tariff-not-found = Тариф не найден.
+admin-tariff-progress-list = ⏳ Обновляю список тарифов…
+admin-tariff-progress-on = ⏳ Возвращаю в продажу <b>{ $label }</b>…
+admin-tariff-progress-off = ⏳ Скрываю <b>{ $label }</b> с продажи…
+admin-tariff-progress-del = ⏳ Удаляю <b>{ $label }</b>…
 
 # Меню на кнопках (D21)
 menu-language = Язык

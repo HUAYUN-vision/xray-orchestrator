@@ -72,6 +72,8 @@ topup-paid = ✅ Balance topped up by { $amount }
 id-yours = Your id: <code>{ $id }</code>
 command-servers = Servers (admin)
 command-server_add = Add a server (admin)
+command-tariffs = Tariffs (admin)
+command-tariff_add = Add a tariff (admin)
 admin-servers-title = <b>Servers</b>
 admin-servers-empty = No servers yet.
 admin-add-hint = Add: /server_add &lt;code&gt; &lt;host&gt; &lt;api_key&gt; [api_port]
@@ -116,6 +118,39 @@ admin-progress-on = ⏳ Enabling <b>{ $code }</b> and installing keys on the nod
 admin-progress-off = ⏳ Disabling <b>{ $code }</b> and removing keys from the node…
 admin-progress-sync = ⏳ Syncing <b>{ $code }</b>…
 admin-progress-del = ⏳ Deleting <b>{ $code }</b> and cleaning the node…
+
+# Tariff admin: same buttons as servers. Hiding does not touch keys already bought.
+admin-tariffs-title = <b>Tariffs</b>
+admin-tariffs-empty = No tariffs yet.
+admin-tariff-add-hint = Add: /tariff_add &lt;days&gt; &lt;price&gt; [currency] [traffic_gb]
+admin-tariff-add-usage =
+    Format: <code>/tariff_add &lt;days&gt; &lt;price&gt; [currency] [traffic_gb]</code>
+    Example: <code>/tariff_add 30 299 rub 100</code>
+    days — from 1 to 3650; price — a number with up to 2 decimals, 0 means free.
+    currency: rub, cny, usdt (default rub).
+    traffic — gigabytes; omit it or pass 0 for unlimited.
+    Buyers see the 6 shortest tariffs on sale.
+admin-tariff-invalid = Invalid parameter: <b>{ $field }</b>.
+admin-tariff-see-list = List: /tariffs
+admin-tariff-free = free
+admin-tariff-unlimited = unlimited
+admin-tariff-traffic = { $gb } GB
+admin-tariff-keys = keys: { $count }
+admin-tariff-hidden-keys = hidden from sale, keys: { $count }
+admin-tariff-added = ✅ Tariff added and on sale: <b>{ $label }</b>
+admin-tariff-shown = ▶️ <b>{ $label }</b> is on sale again
+admin-tariff-hidden = ⏸ <b>{ $label }</b> is hidden from sale
+admin-tariff-keys-stay = Keys already bought keep working.
+admin-tariff-deleted = 🗑 Tariff <b>{ $label }</b> deleted
+admin-tariff-delete-confirm = Delete tariff <b>{ $label }</b>? Nobody has bought it, so it will be removed for good.
+admin-tariff-in-use = Cannot delete this tariff: keys were already bought on it. Hide it from sale — those keys keep working.
+admin-tariff-none-active = ⚠️ No tariffs on sale — a key cannot be bought.
+admin-tariff-too-many = ⚠️ { $count } tariffs are on sale, buyers only see the { $max } shortest.
+admin-tariff-not-found = Tariff not found.
+admin-tariff-progress-list = ⏳ Refreshing tariffs…
+admin-tariff-progress-on = ⏳ Putting <b>{ $label }</b> back on sale…
+admin-tariff-progress-off = ⏳ Hiding <b>{ $label }</b> from sale…
+admin-tariff-progress-del = ⏳ Deleting <b>{ $label }</b>…
 
 # Button menu (D21)
 menu-language = Language
