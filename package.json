@@ -1,6 +1,6 @@
 {
   "name": "xray-orchestrator",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Telegram bot for managing Xray keys",
   "private": true,
   "license": "MIT",
