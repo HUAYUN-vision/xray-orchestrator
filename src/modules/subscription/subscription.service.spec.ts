@@ -5,7 +5,7 @@ import type { UserKey } from '../../database/entities';
 import type { ServersRepository } from '../../database/repositories/servers.repository';
 import type { UserKeysRepository } from '../../database/repositories/user-keys.repository';
 import type { XrayService } from '../xray/xray.service';
-import { DIRECT_DOMAINS } from './domains';
+import { DIRECT_GEOIP, DIRECT_GEOSITE, PRIVATE_CIDRS } from '../xray/xray-client-config';
 import { detectFormat, SubscriptionService, serverLabel } from './subscription.service';
 
 const KEY_ID = '0b3f2c1e-8a7d-4c3b-9e2f-1a2b3c4d5e6f';
@@ -47,17 +47,29 @@ describe('SubscriptionService', () => {
     await expect(service.build(KEY_ID)).resolves.toBeNull();
   });
 
-  it('builds a config per server with direct routing for the domain lists', async () => {
+  it('builds a config per server with geosite/geoip direct routing', async () => {
     const configs = (await service.build(KEY_ID))!.body as Record<string, unknown>[];
     expect(configs.map((c) => c.remarks)).toEqual(['🇳🇱 NL', '🇩🇪 DE']);
 
-    const rules = (configs[0].routing as { rules: Record<string, unknown>[] }).rules;
-    expect(rules[0]).toMatchObject({ outboundTag: 'direct' });
-    expect(rules[0].domain).toEqual(
-      expect.arrayContaining(['domain:gosuslugi.ru', 'domain:qq.com']),
-    );
-    expect((rules[0].domain as string[]).length).toBe(DIRECT_DOMAINS.length);
-    expect(rules.at(-1)).toMatchObject({ network: 'tcp,udp', outboundTag: 'proxy' });
+    const routing = configs[0].routing as {
+      domainStrategy: string;
+      rules: Record<string, unknown>[];
+    };
+    expect(routing.domainStrategy).toBe('IPOnDemand');
+    expect(routing.rules[0]).toMatchObject({ domain: DIRECT_GEOSITE, outboundTag: 'direct' });
+    expect(routing.rules[1]).toMatchObject({
+      ip: [...DIRECT_GEOIP, ...PRIVATE_CIDRS],
+      outboundTag: 'direct',
+    });
+    expect(routing.rules.at(-1)).toMatchObject({ network: 'tcp,udp', outboundTag: 'proxy' });
+
+    const dns = configs[0].dns as { queryStrategy: string; servers: { address: string }[] };
+    expect(dns.queryStrategy).toBe('UseIPv4');
+    expect(dns.servers[0]).toMatchObject({
+      address: '77.88.8.8',
+      domains: ['geosite:category-ru'],
+    });
+    expect(dns.servers[1]).toMatchObject({ address: '223.5.5.5', domains: ['geosite:cn'] });
   });
 
   it('skips unreachable servers instead of failing', async () => {
@@ -71,7 +83,11 @@ describe('SubscriptionService', () => {
   it('singbox: one config with all servers, auto-select and direct routing', async () => {
     const config = (await service.build(KEY_ID, 'singbox'))!.body as {
       outbounds: Record<string, unknown>[];
-      route: { rules: Record<string, unknown>[]; final: string };
+      route: {
+        rules: Record<string, unknown>[];
+        rule_set: Record<string, unknown>[];
+        final: string;
+      };
     };
     expect(config.outbounds[0]).toMatchObject({
       type: 'selector',
@@ -91,8 +107,23 @@ describe('SubscriptionService', () => {
         reality: { enabled: true, public_key: 'PK', short_id: 'ab' },
       },
     });
-    expect(config.route.rules[0]).toMatchObject({ outbound: 'direct' });
-    expect(config.route.rules[0].domain_suffix).toHaveLength(DIRECT_DOMAINS.length);
+    expect(config.route.rules[0]).toMatchObject({ ip_cidr: PRIVATE_CIDRS, outbound: 'direct' });
+    expect(config.route.rules[1]).toMatchObject({
+      rule_set: ['geosite-category-ru', 'geosite-cn', 'geosite-private'],
+      outbound: 'direct',
+    });
+    expect(config.route.rules[2]).toMatchObject({
+      rule_set: ['geoip-ru', 'geoip-cn'],
+      outbound: 'direct',
+    });
+    expect(config.route.rule_set.map((set) => set.tag)).toEqual([
+      'geosite-category-ru',
+      'geosite-cn',
+      'geosite-private',
+      'geoip-ru',
+      'geoip-cn',
+    ]);
+    expect(config.route.rule_set.every((set) => set.download_detour === 'proxy')).toBe(true);
     expect(config.route.final).toBe('proxy');
   });
 
@@ -125,12 +156,5 @@ describe('serverLabel', () => {
     ['eu-1', 'EU-1'],
   ])('%p → %p', (code, label) => {
     expect(serverLabel(code)).toBe(label);
-  });
-});
-
-describe('DIRECT_DOMAINS', () => {
-  it('has no duplicates or malformed entries', () => {
-    expect(new Set(DIRECT_DOMAINS).size).toBe(DIRECT_DOMAINS.length);
-    for (const d of DIRECT_DOMAINS) expect(d).toMatch(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/);
   });
 });

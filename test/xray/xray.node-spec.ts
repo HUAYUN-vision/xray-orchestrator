@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import type { AppConfigService } from '../../src/config/app-config.service';
-import { DIRECT_DOMAINS } from '../../src/modules/subscription/domains';
 import { buildXrayClientConfig } from '../../src/modules/xray/xray-client-config';
 import { type XrayNode, XrayNodeClient } from '../../src/modules/xray/xray-node.client';
 import { XrayService } from '../../src/modules/xray/xray.service';
@@ -108,13 +107,12 @@ describe('XrayService against xray-server-instance (node)', () => {
     expect(link).toMatch(new RegExp(`^vless://${id}@${node.host}:443\\?.*security=reality`));
   });
 
-  it('generated client config (with direct domains) is valid for xray', async () => {
+  it('generated client config (geosite/geoip direct) is valid for xray', async () => {
     const config = buildXrayClientConfig({
       clientId: randomUUID(),
       host: 'example.com',
       params: await xray.getRealityParams(node),
       label: 'Test',
-      directDomains: DIRECT_DOMAINS,
     });
     // The remote shell gets the JSON via base64 to avoid any quoting issues.
     const b64 = Buffer.from(JSON.stringify(config)).toString('base64');

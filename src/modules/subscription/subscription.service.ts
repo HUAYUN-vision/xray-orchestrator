@@ -5,7 +5,6 @@ import { UserKeysRepository } from '../../database/repositories/user-keys.reposi
 import { buildSingboxClientConfig, type SingboxServer } from '../xray/singbox-client-config';
 import { buildXrayClientConfig } from '../xray/xray-client-config';
 import { XrayService } from '../xray/xray.service';
-import { DIRECT_DOMAINS } from './domains';
 
 /**
  * `xray`: array of Xray configs, one per server (Happ, v2rayN, v2rayNG, Streisand, V2Box).
@@ -26,8 +25,10 @@ export interface Subscription {
 }
 
 /**
- * Builds the subscription for a key with direct routing for DIRECT_DOMAINS:
- * xray-json or sing-box depending on the client. Served at GET /{prefix}/sub/{keyId}.
+ * Builds the subscription for a key. Russian and Chinese sites and private networks
+ * go direct (geosite/geoip, see the client-config builders); everything else goes
+ * through the proxy. xray-json or sing-box depending on the client.
+ * Served at GET /{prefix}/sub/{keyId}.
  */
 @Injectable()
 export class SubscriptionService {
@@ -55,14 +56,13 @@ export class SubscriptionService {
     const servers = await this.reachableServers();
     const body =
       format === 'singbox'
-        ? buildSingboxClientConfig({ clientId: key.id, servers, directDomains: DIRECT_DOMAINS })
+        ? buildSingboxClientConfig({ clientId: key.id, servers })
         : servers.map((s) =>
             buildXrayClientConfig({
               clientId: key.id,
               host: s.host,
               params: s.params,
               label: s.label,
-              directDomains: DIRECT_DOMAINS,
             }),
           );
 

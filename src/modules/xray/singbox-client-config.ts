@@ -11,19 +11,44 @@ export interface SingboxServer {
 export interface SingboxConfigInput {
   clientId: string;
   servers: SingboxServer[];
-  /** Opened directly, bypassing the VPN (each matches the domain and its subdomains). */
-  directDomains: readonly string[];
 }
+
+/** sing-box 1.8+ remote rule-sets. Same categories as the Xray geosite/geoip rules. */
+const RULE_SETS = [
+  {
+    tag: 'geosite-category-ru',
+    url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ru.srs',
+  },
+  {
+    tag: 'geosite-cn',
+    url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs',
+  },
+  {
+    tag: 'geosite-private',
+    url: 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-private.srs',
+  },
+  {
+    tag: 'geoip-ru',
+    url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs',
+  },
+  {
+    tag: 'geoip-cn',
+    url: 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs',
+  },
+] as const;
 
 /**
  * sing-box client config for Hiddify (it runs sing-box and rejects xray-json).
- * One config with all servers: a selector with automatic choice by latency (urltest),
- * direct routing for `directDomains` and private networks.
+ * One config with all servers: a selector with automatic choice by latency (urltest).
+ * Russian and Chinese sites go direct via remote rule-sets (the sing-box equivalent of
+ * geosite/geoip); private networks are inlined so LAN works before a rule-set is downloaded.
+ * Rule-sets are fetched through the proxy, because GitHub is often blocked in Russia and China.
  * No inbounds/dns: Hiddify builds them from its own settings (TUN/proxy mode, DNS).
  * Route rules use the `outbound` field, not `action`: older sing-box cores in Hiddify understand it.
+ * Requires sing-box 1.8 or newer (rule-set). `download_detour` is the field those cores accept.
  */
 export function buildSingboxClientConfig(input: SingboxConfigInput): Record<string, unknown> {
-  const { clientId, servers, directDomains } = input;
+  const { clientId, servers } = input;
   const tags = servers.map((s) => s.label);
   return {
     log: { level: 'warn' },
@@ -55,9 +80,21 @@ export function buildSingboxClientConfig(input: SingboxConfigInput): Record<stri
     ],
     route: {
       rules: [
-        { domain_suffix: [...directDomains], outbound: 'direct' },
         { ip_cidr: PRIVATE_CIDRS, outbound: 'direct' },
+        {
+          rule_set: ['geosite-category-ru', 'geosite-cn', 'geosite-private'],
+          outbound: 'direct',
+        },
+        { rule_set: ['geoip-ru', 'geoip-cn'], outbound: 'direct' },
       ],
+      rule_set: RULE_SETS.map((set) => ({
+        type: 'remote',
+        tag: set.tag,
+        format: 'binary',
+        url: set.url,
+        download_detour: 'proxy',
+        update_interval: '24h',
+      })),
       final: 'proxy',
     },
   };
