@@ -38,4 +38,26 @@ describe('direct-domains', () => {
     ]);
     expect(asSingboxSuffixes(PRIVATE_DOMAINS).every((name) => !name.startsWith('.'))).toBe(true);
   });
+
+  it('sends Hellobike, Meituan Bike and DiDi Qingju direct', () => {
+    const names = new Set(ALL_DIRECT_DOMAINS);
+    const covered = (host: string): boolean =>
+      [...names].some((name) => host === name || host.endsWith(`.${name}`));
+
+    // Hellobike / 哈啰单车 — app API, corporate, .cn zone
+    expect(covered('a.hellobike.com')).toBe(true);
+    expect(covered('api.hello-inc.com')).toBe(true);
+    expect(covered('mp.hellobike.cn')).toBe(true);
+
+    // Meituan Bike / 美团单车 — app, backend sankuai, legacy Mobike
+    expect(covered('bike.meituan.com')).toBe(true);
+    expect(covered('api.sankuai.com')).toBe(true);
+    expect(covered('app.mobike.com')).toBe(true);
+
+    // DiDi Qingju / 滴滴青桔 — brand, 小桔, original udache API, .cn
+    expect(covered('www.qingjuchuxing.com')).toBe(true);
+    expect(covered('api.xiaojukeji.com')).toBe(true);
+    expect(covered('api.udache.com')).toBe(true);
+    expect(covered('api.didi.cn')).toBe(true);
+  });
 });
