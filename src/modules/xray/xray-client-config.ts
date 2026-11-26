@@ -1,8 +1,14 @@
+import {
+  ALL_DIRECT_DOMAINS,
+  asXrayDomains,
+  CN_DIRECT_DOMAINS,
+  RU_DIRECT_DOMAINS,
+} from './direct-domains';
 import type { RealityParams } from './xray.service';
 
 /**
  * Private, link-local and carrier-grade NAT ranges: never send them through the VPN.
- * Listed explicitly so this still matches when a client geoip file has no `geoip:private`.
+ * Inlined so the client does not need `geoip.dat`.
  */
 export const PRIVATE_CIDRS = [
   '10.0.0.0/8',
@@ -16,20 +22,16 @@ export const PRIVATE_CIDRS = [
   'fe80::/10',
 ];
 
-/**
- * Categories from the geosite.dat shipped with Xray clients (v2fly domain-list-community).
- * `category-ru` includes the Russian TLDs (`.ru`, `.su`, `.рф`, …) and Russian companies
- * on other suffixes. `cn` is the China list, including `.cn`. `private` is local names.
- */
-export const DIRECT_GEOSITE = ['geosite:category-ru', 'geosite:cn', 'geosite:private'];
+export const XRAY_DIRECT_DOMAINS = asXrayDomains(ALL_DIRECT_DOMAINS);
+export const XRAY_RU_DNS_DOMAINS = asXrayDomains(RU_DIRECT_DOMAINS);
+export const XRAY_CN_DNS_DOMAINS = asXrayDomains(CN_DIRECT_DOMAINS);
 
-/** Country and private ranges from the client's geoip.dat. */
-export const DIRECT_GEOIP = ['geoip:private', 'geoip:ru', 'geoip:cn'];
-
-/** Yandex DNS. Used for Russian names; the address itself is in `geoip:ru`, so the query goes direct. */
+/** Yandex DNS. The address is listed in the IP rule so the query goes direct. */
 const YANDEX_DNS = '77.88.8.8';
-/** AliDNS. Used for Chinese names; the address itself is in `geoip:cn`, so the query goes direct. */
+/** AliDNS. The address is listed in the IP rule so the query goes direct. */
 const ALIDNS = '223.5.5.5';
+
+export const DIRECT_DNS_IPS = [YANDEX_DNS, ALIDNS];
 
 export interface ClientConfigInput {
   clientId: string;
@@ -45,12 +47,12 @@ export interface ClientConfigInput {
  * Understood by Xray-based apps: Happ, v2rayN, v2rayNG, Streisand, V2Box, INCY (xray-json subscriptions).
  * Not by Hiddify: it runs sing-box, see singbox-client-config.ts.
  *
- * Domain lists are not inlined. The client matches `geosite` / `geoip` against the dat files
- * it already updates, so a new `.ru` or `.cn` name is direct without a new subscription build.
+ * Routing uses `domain:ru` / `domain:cn` (the whole zone) plus a short extra list for
+ * services on other suffixes. No `geosite:` / `geoip:`: Happ on iOS has a 50 MB tunnel
+ * limit and cannot load those dat files.
  *
- * `domainStrategy` is `IPOnDemand`, not `IPIfNonMatch`: the catch-all at the bottom matches
- * on the first pass, and `IPIfNonMatch` would never resolve the domain to test `geoip:ru` / `geoip:cn`.
- * With `IPOnDemand` the IP rule resolves only after the geosite rule has missed.
+ * `domainStrategy` is `AsIs`: sniffing already supplies the name, and there is no
+ * country-IP rule that would need a lookup.
  */
 export function buildXrayClientConfig(input: ClientConfigInput): Record<string, unknown> {
   const { clientId, host, params, label } = input;
@@ -59,17 +61,16 @@ export function buildXrayClientConfig(input: ClientConfigInput): Record<string, 
     log: { loglevel: 'warning' },
     dns: {
       queryStrategy: 'UseIPv4',
-      serveStale: true,
       servers: [
         {
           address: YANDEX_DNS,
-          domains: ['geosite:category-ru'],
+          domains: XRAY_RU_DNS_DOMAINS,
           skipFallback: true,
           timeoutMs: 1000,
         },
         {
           address: ALIDNS,
-          domains: ['geosite:cn'],
+          domains: XRAY_CN_DNS_DOMAINS,
           skipFallback: true,
           timeoutMs: 1000,
         },
@@ -126,11 +127,10 @@ export function buildXrayClientConfig(input: ClientConfigInput): Record<string, 
       { tag: 'block', protocol: 'blackhole' },
     ],
     routing: {
-      domainMatcher: 'hybrid',
-      domainStrategy: 'IPOnDemand',
+      domainStrategy: 'AsIs',
       rules: [
-        { type: 'field', domain: DIRECT_GEOSITE, outboundTag: 'direct' },
-        { type: 'field', ip: [...DIRECT_GEOIP, ...PRIVATE_CIDRS], outboundTag: 'direct' },
+        { type: 'field', domain: XRAY_DIRECT_DOMAINS, outboundTag: 'direct' },
+        { type: 'field', ip: [...DIRECT_DNS_IPS, ...PRIVATE_CIDRS], outboundTag: 'direct' },
         { type: 'field', network: 'tcp,udp', outboundTag: 'proxy' },
       ],
     },

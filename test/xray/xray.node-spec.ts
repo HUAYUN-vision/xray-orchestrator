@@ -107,7 +107,7 @@ describe('XrayService against xray-server-instance (node)', () => {
     expect(link).toMatch(new RegExp(`^vless://${id}@${node.host}:443\\?.*security=reality`));
   });
 
-  it('generated client config (geosite/geoip direct) is valid for xray', async () => {
+  it('generated client config (TLD/extra direct) is valid for xray', async () => {
     const config = buildXrayClientConfig({
       clientId: randomUUID(),
       host: 'example.com',

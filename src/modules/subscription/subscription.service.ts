@@ -26,8 +26,8 @@ export interface Subscription {
 
 /**
  * Builds the subscription for a key. Russian and Chinese sites and private networks
- * go direct (geosite/geoip, see the client-config builders); everything else goes
- * through the proxy. xray-json or sing-box depending on the client.
+ * go direct (ccTLD suffixes plus extras, see the client-config builders); everything
+ * else goes through the proxy. xray-json or sing-box depending on the client.
  * Served at GET /{prefix}/sub/{keyId}.
  */
 @Injectable()
