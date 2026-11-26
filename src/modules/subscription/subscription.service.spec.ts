@@ -5,7 +5,14 @@ import type { UserKey } from '../../database/entities';
 import type { ServersRepository } from '../../database/repositories/servers.repository';
 import type { UserKeysRepository } from '../../database/repositories/user-keys.repository';
 import type { XrayService } from '../xray/xray.service';
-import { DIRECT_GEOIP, DIRECT_GEOSITE, PRIVATE_CIDRS } from '../xray/xray-client-config';
+import { SINGBOX_DIRECT_SUFFIXES } from '../xray/singbox-client-config';
+import {
+  DIRECT_DNS_IPS,
+  PRIVATE_CIDRS,
+  XRAY_CN_DNS_DOMAINS,
+  XRAY_DIRECT_DOMAINS,
+  XRAY_RU_DNS_DOMAINS,
+} from '../xray/xray-client-config';
 import { detectFormat, SubscriptionService, serverLabel } from './subscription.service';
 
 const KEY_ID = '0b3f2c1e-8a7d-4c3b-9e2f-1a2b3c4d5e6f';
@@ -47,29 +54,27 @@ describe('SubscriptionService', () => {
     await expect(service.build(KEY_ID)).resolves.toBeNull();
   });
 
-  it('builds a config per server with geosite/geoip direct routing', async () => {
+  it('builds a config per server with TLD/extra direct routing and no geo files', async () => {
     const configs = (await service.build(KEY_ID))!.body as Record<string, unknown>[];
     expect(configs.map((c) => c.remarks)).toEqual(['🇳🇱 NL', '🇩🇪 DE']);
+    expect(JSON.stringify(configs)).not.toMatch(/geosite:|geoip:/);
 
     const routing = configs[0].routing as {
       domainStrategy: string;
       rules: Record<string, unknown>[];
     };
-    expect(routing.domainStrategy).toBe('IPOnDemand');
-    expect(routing.rules[0]).toMatchObject({ domain: DIRECT_GEOSITE, outboundTag: 'direct' });
+    expect(routing.domainStrategy).toBe('AsIs');
+    expect(routing.rules[0]).toMatchObject({ domain: XRAY_DIRECT_DOMAINS, outboundTag: 'direct' });
     expect(routing.rules[1]).toMatchObject({
-      ip: [...DIRECT_GEOIP, ...PRIVATE_CIDRS],
+      ip: [...DIRECT_DNS_IPS, ...PRIVATE_CIDRS],
       outboundTag: 'direct',
     });
     expect(routing.rules.at(-1)).toMatchObject({ network: 'tcp,udp', outboundTag: 'proxy' });
 
     const dns = configs[0].dns as { queryStrategy: string; servers: { address: string }[] };
     expect(dns.queryStrategy).toBe('UseIPv4');
-    expect(dns.servers[0]).toMatchObject({
-      address: '77.88.8.8',
-      domains: ['geosite:category-ru'],
-    });
-    expect(dns.servers[1]).toMatchObject({ address: '223.5.5.5', domains: ['geosite:cn'] });
+    expect(dns.servers[0]).toMatchObject({ address: '77.88.8.8', domains: XRAY_RU_DNS_DOMAINS });
+    expect(dns.servers[1]).toMatchObject({ address: '223.5.5.5', domains: XRAY_CN_DNS_DOMAINS });
   });
 
   it('skips unreachable servers instead of failing', async () => {
@@ -85,7 +90,7 @@ describe('SubscriptionService', () => {
       outbounds: Record<string, unknown>[];
       route: {
         rules: Record<string, unknown>[];
-        rule_set: Record<string, unknown>[];
+        rule_set?: Record<string, unknown>[];
         final: string;
       };
     };
@@ -107,23 +112,13 @@ describe('SubscriptionService', () => {
         reality: { enabled: true, public_key: 'PK', short_id: 'ab' },
       },
     });
+    expect(JSON.stringify(config)).not.toMatch(/geosite|geoip|rule_set/);
     expect(config.route.rules[0]).toMatchObject({ ip_cidr: PRIVATE_CIDRS, outbound: 'direct' });
     expect(config.route.rules[1]).toMatchObject({
-      rule_set: ['geosite-category-ru', 'geosite-cn', 'geosite-private'],
+      domain_suffix: SINGBOX_DIRECT_SUFFIXES,
       outbound: 'direct',
     });
-    expect(config.route.rules[2]).toMatchObject({
-      rule_set: ['geoip-ru', 'geoip-cn'],
-      outbound: 'direct',
-    });
-    expect(config.route.rule_set.map((set) => set.tag)).toEqual([
-      'geosite-category-ru',
-      'geosite-cn',
-      'geosite-private',
-      'geoip-ru',
-      'geoip-cn',
-    ]);
-    expect(config.route.rule_set.every((set) => set.download_detour === 'proxy')).toBe(true);
+    expect(config.route.rule_set).toBeUndefined();
     expect(config.route.final).toBe('proxy');
   });
 
